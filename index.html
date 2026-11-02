@@ -850,11 +850,25 @@ function expenseSheet(id) {
     };
   });
 }
+/* names offered when adding an item: removed items first (they get restored), then default items not on the list */
+function itemSuggestions(room) {
+  var out = [], seen = {};
+  S.items.filter(function (i) { return i.removed; }).sort(function (a, b) { return (a.room === room ? 0 : 1) - (b.room === room ? 0 : 1); })
+    .forEach(function (i) { if (!seen[i.name]) { seen[i.name] = 1; out.push({ name: i.name, label: "הוסר – " + (ROOM[i.room] || ""), removed: i }); } });
+  DEFAULT_ITEMS.filter(function (x) { return x[0] === room; }).concat(DEFAULT_ITEMS.filter(function (x) { return x[0] !== room; })).forEach(function (x) {
+    if (seen[x[1]] || S.items.some(function (i) { return i.name === x[1]; })) return;
+    seen[x[1]] = 1; out.push({ name: x[1], label: ROOM[x[0]], def: x });
+  });
+  return out;
+}
+function removedByName(name) { name = (name || "").trim(); return S.items.find(function (i) { return i.removed && i.name === name; }); }
 function itemSheet(id, room) {
   var i = id ? S.items.find(function (x) { return x.id === id; }) : null;
   var d = i || { room: room || "elec", prio: "month", status: "todo", payer: "j", method: "אשראי", inst: 1, planned: "" };
   openSheet("<h3>" + (i ? esc(i.name) : "פריט חדש") + '</h3><form id="f" style="display:grid;gap:12px">' +
-    '<label class="field"><span>שם הפריט</span><input type="text" name="name" value="' + esc(d.name || "") + '" required></label>' +
+    '<label class="field"><span>שם הפריט</span><input type="text" name="name" value="' + esc(d.name || "") + '" required' + (i ? "" : ' list="item-suggest" autocomplete="off" placeholder="בחירה מהרשימה או הקלדה חופשית"') + ">" +
+    (i ? "" : '<datalist id="item-suggest">' + itemSuggestions(d.room).map(function (x) { return '<option value="' + esc(x.name) + '">' + esc(x.label) + "</option>"; }).join("") + "</datalist>" +
+      '<span class="hint" id="restore-hint" hidden></span>') + "</label>" +
     '<div class="grid2"><label class="field"><span>חדר / קבוצה</span><select name="room">' + opts(ROOMS, d.room) + '</select></label>' +
     '<label class="field"><span>עדיפות</span><select name="prio">' + opts([["now", PRIO.now], ["month", PRIO.month], ["later", PRIO.later]], d.prio) + "</select></label></div>" +
     '<div class="grid2"><label class="field"><span>תקציב מתוכנן</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="planned" value="' + (d.planned != null ? d.planned : "") + '"></div></label>' +
@@ -871,9 +885,23 @@ function itemSheet(id, room) {
     '<button class="btn primary wide" type="submit">שמירה</button>' +
     (i ? '<div class="btns"><button class="btn" type="button" data-act="remove-item" data-id="' + i.id + '">לא צריך</button><button class="btn danger" type="button" data-act="delete-item" data-id="' + i.id + '">מחיקה לצמיתות</button></div>' : "") + "</form>",
   function (el) {
+    var nameIn = $("[name=name]", el);
+    if (!i) nameIn.addEventListener("input", function () {
+      var r = removedByName(nameIn.value), hint = $("#restore-hint", el), sug = itemSuggestions($("[name=room]", el).value).find(function (x) { return x.name === nameIn.value.trim(); });
+      if (r) {
+        $("[name=room]", el).value = r.room; $("[name=prio]", el).value = r.prio;
+        if (!$("[name=planned]", el).value) $("[name=planned]", el).value = r.planned || "";
+        hint.textContent = "הפריט הזה סומן בעבר 'לא צריך' – הוא יחזור לרשימה."; hint.hidden = false;
+      } else {
+        hint.hidden = true;
+        if (sug && sug.def) { $("[name=room]", el).value = sug.def[0]; $("[name=prio]", el).value = sug.def[2]; if (!$("[name=planned]", el).value) $("[name=planned]", el).value = sug.def[3] || ""; }
+      }
+    });
     $("#f", el).onsubmit = function (ev) {
       ev.preventDefault(); var f = formData(ev.target);
       if (!f.name.trim()) { toast("צריך שם לפריט"); return; }
+      var back = !i && removedByName(f.name);
+      if (back) { i = back; i.removed = false; }
       if ((num(f.planned) || 0) < 0 || (num(f.actual) || 0) < 0) { toast("סכום לא יכול להיות שלילי"); return; }
       var rec = i || { id: uid(), removed: false };
       rec.name = f.name.trim(); rec.room = f.room; rec.prio = f.prio; rec.planned = num(f.planned) || 0;
@@ -882,7 +910,7 @@ function itemSheet(id, room) {
       rec.date = f.date || (rec.actual != null ? today() : "");
       if (rec.actual != null && rec.status === "todo") rec.status = "got";
       if (!i) S.items.push(rec);
-      save(); closeSheet(); render(); toast(i ? "הפריט עודכן" : "הפריט נוסף");
+      save(); closeSheet(); render(); toast(back ? "„" + rec.name + "” חזר לרשימה" : i ? "הפריט עודכן" : "הפריט נוסף");
     };
   });
 }

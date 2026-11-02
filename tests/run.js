@@ -343,6 +343,32 @@ test("MOV-12", "מעבר", "מחיר שלילי", "מקרר ← מחיר בפו�
   const i = (await state(p)).items.find(x => x.name === "מקרר"); assert(i.actual == null || i.actual >= 0, "negative saved: " + i.actual);
 });
 
+test("MOV-13", "מעבר", "החזרת פריט דרך 'פריט חדש'", "מזגן ← לא צריך ← חשמל ← + פריט ← בחירת 'מזגן + התקנה' מהרשימה ← שמירה", "הרשימה מציעה את המזגן כ'הוסר'; אחרי השמירה הפריט המקורי חוזר (בלי כפילות) עם התקציב שלו", async p => {
+  await onboard(p); await openItem(p, "מזגן + התקנה"); await p.click(".sheet [data-act=remove-item]");
+  await tab(p, "move"); await p.click("[data-act=add-item][data-room=elec]");
+  const opts = await p.$$eval("#item-suggest option", o => o.map(x => x.value + "|" + x.textContent));
+  assert(opts[0] && opts[0].startsWith("מזגן + התקנה|הוסר"), "removed item not offered first: " + opts.slice(0, 3));
+  await p.fill(".sheet [name=name]", "מזגן + התקנה");
+  assert(await p.isVisible("#restore-hint"), "no restore hint");
+  assert((await p.inputValue(".sheet [name=planned]")) === "3000", "planned not prefilled");
+  await submit(p);
+  const all = (await state(p)).items.filter(x => x.name === "מזגן + התקנה");
+  assert(all.length === 1 && !all[0].removed && all[0].planned === 3000, JSON.stringify(all));
+});
+test("MOV-14", "מעבר", "הקלדה חופשית לצד הרשימה", "+ פריט ← הקלדת 'מנורת לילה' שלא ברשימה ← שמירה", "נוצר פריט חדש בשם שהוקלד", async p => {
+  await onboard(p); await tab(p, "move"); await p.click("[data-act=add-item][data-room=bedroom]");
+  await p.fill(".sheet [name=name]", "מנורת לילה"); await p.fill(".sheet [name=planned]", "150"); await submit(p);
+  const it = (await state(p)).items.find(x => x.name === "מנורת לילה");
+  assert(it && it.room === "bedroom" && !it.removed, JSON.stringify(it));
+});
+test("MOV-15", "מעבר", "פריט ברירת מחדל שנמחק לצמיתות", "טלוויזיה ← מחיקה לצמיתות ← + פריט", "'טלוויזיה' מוצעת שוב ברשימה עם הקבוצה והתקציב המקוריים", async p => {
+  await onboard(p); await openItem(p, "טלוויזיה"); await p.click(".sheet [data-act=delete-item]"); await p.click(".sheet .btn.danger");
+  await tab(p, "move"); await p.click("[data-act=add-item][data-room=living]");
+  assert((await p.$$eval("#item-suggest option", o => o.map(x => x.value))).includes("טלוויזיה"), "not suggested");
+  await p.fill(".sheet [name=name]", "טלוויזיה");
+  assert((await p.inputValue(".sheet [name=room]")) === "elec" && (await p.inputValue(".sheet [name=planned]")) === "2500", "not prefilled");
+});
+
 /* --- bills --- */
 test("BIL-01", "חשבונות", "ממוצע חודשי", "שכר דירה 5500 חודשי, חשמל 450 דו־חודשי", "ממוצע לחודש 5,725", async p => {
   await onboard(p); await setBill(p, "שכר דירה", { amount: 5500 }); await setBill(p, "חשמל", { amount: 450 });
