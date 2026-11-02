@@ -405,9 +405,14 @@ function installmentLoad(ym) {
     return k >= 0 && k < x.inst ? x.amount / x.inst : 0;
   });
 }
-function needPerMonth() {
-  var fixed = sum(S.bills.filter(function (b) { return b.payer === "j"; }), monthlyOfBill);
-  return { fixed: fixed, variable: +S.settings.variable || 0, total: fixed + (+S.settings.variable || 0) };
+/* the month the couple moves in: rent, bills and the variable budget only start from it */
+function startYm() { return S.settings.moveDate ? ymOf(S.settings.moveDate) : ""; }
+function beforeMove(ym) { var s0 = startYm(); return !!s0 && ym < s0; }
+function needPerMonth(ym) {
+  ym = ym || curYm();
+  var fixed = sum(S.bills.filter(function (b) { return b.payer === "j"; }), monthlyOfBill), variable = +S.settings.variable || 0;
+  if (beforeMove(ym)) return { fixed: 0, variable: 0, total: 0, before: true, next: fixed + variable, nextFixed: fixed, nextVar: variable };
+  return { fixed: fixed, variable: variable, total: fixed + variable };
 }
 function transfersIn(ym) { return S.transfers.filter(function (t) { return ymOf(t.date) === ym; }); }
 function jointMonth(ym) {
@@ -514,7 +519,7 @@ function variableField(s) {
   return '<label class="field"><span>תקציב חודשי להוצאות משתנות מהחשבון המשותף</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="variable" value="' + (s.variable || "") + '" placeholder="למשל 3000"></div><span class="hint">סופר, דלק, בילויים וכו׳. החשבונות הקבועים מחושבים לבד.</span></label>';
 }
 function transferCard(ym) {
-  var need = needPerMonth(), half = Math.round(need.total / 2), ts = transfersIn(ym);
+  var need = needPerMonth(ym), half = Math.round(need.total / 2), ts = transfersIn(ym);
   var ga = sum(ts.filter(function (t) { return t.who === "a"; }), function (t) { return t.amount; }),
       gb = sum(ts.filter(function (t) { return t.who === "b"; }), function (t) { return t.amount; });
   function line(p, g) {
@@ -522,7 +527,9 @@ function transferCard(ym) {
     return '<div class="hb"><div class="row spread"><span>' + payerChip(p) + "</span><span>" + money(g) + ' <span class="muted small">מתוך ' + moneyT(half) + "</span>" + (done ? ' <span class="chip done">✓</span>' : "") + '</span></div><div class="bar"><i style="width:' + pct + '%"></i></div></div>';
   }
   return '<section class="card"><div class="row spread"><h2>העברות לחשבון המשותף</h2><span class="chip">' + MONTHS[+ym.slice(5) - 1] + "</span></div>" +
-    (need.total ? '<div class="small">כל אחד מעביר החודש <b>' + money(half) + '</b> <span class="muted">(חשבונות קבועים ' + moneyT(Math.round(need.fixed)) + " + משתנות " + moneyT(need.variable) + ", חלקי 2)</span></div>" :
+    (need.before ? '<div class="small">נכנסים לדירה ב' + monthTitle(startYm()) + ' – שכר הדירה, החשבונות וההוצאות המשתנות מתחילים אז, ולכן החודש אין צורך להעביר.' +
+        (need.next ? ' החל מ' + MONTHS[+startYm().slice(5) - 1] + ' כל אחד יעביר <b>' + money(Math.round(need.next / 2)) + '</b> <span class="muted">(קבועים ' + moneyT(Math.round(need.nextFixed)) + " + משתנות " + moneyT(need.nextVar) + ", חלקי 2)</span>" : "") + "</div>" :
+     need.total ? '<div class="small">כל אחד מעביר החודש <b>' + money(half) + '</b> <span class="muted">(חשבונות קבועים ' + moneyT(Math.round(need.fixed)) + " + משתנות " + moneyT(need.variable) + ", חלקי 2)</span></div>" :
       '<div class="small muted">כדי לקבל הצעה כמה להעביר – הגדירו סכומים לחשבונות ותקציב להוצאות משתנות בהגדרות.</div>') +
     '<div class="hbars">' + line("a", ga) + line("b", gb) + "</div>" +
     (ts.length ? '<div class="list">' + ts.map(function (t) {
@@ -531,7 +538,7 @@ function transferCard(ym) {
     '<button class="btn soft" data-act="add-transfer">רישום העברה</button></section>';
 }
 function transferSheet(id) {
-  var t = id ? S.transfers.find(function (x) { return x.id === id; }) : null, half = Math.round(needPerMonth().total / 2);
+  var t = id ? S.transfers.find(function (x) { return x.id === id; }) : null, nd = needPerMonth(), half = Math.round((nd.before ? nd.next : nd.total) / 2);
   var d = t || { who: "a", amount: half || "", date: today() };
   openSheet("<h3>" + (t ? "עריכת העברה" : "העברה לחשבון המשותף") + '</h3><form id="f" style="display:grid;gap:12px">' +
     '<label class="field"><span>מי העביר</span><select name="who">' + opts([["a", nameOf("a")], ["b", nameOf("b")]], d.who) + "</select></label>" +
@@ -755,10 +762,10 @@ function renderReports() {
 
   // forecast
   var fc = []; for (var j = 1; j <= 6; j++) fc.push(ymAdd(curYm(), j));
-  var fixed = sum(S.bills, monthlyOfBill);
+  var fixedAll = sum(S.bills, monthlyOfBill);
   h += '<section class="card"><h2>תחזית 6 חודשים קדימה</h2><table class="t"><thead><tr><th>חודש</th><th class="n">קבועות</th><th class="n">תשלומי אשראי</th><th class="n">סה״כ</th></tr></thead><tbody>' +
-    fc.map(function (m) { var il = installmentLoad(m); return "<tr><td>" + monthTitle(m) + '</td><td class="n">' + money(fixed) + '</td><td class="n">' + money(il) + '</td><td class="n"><b>' + money(fixed + il) + "</b></td></tr>"; }).join("") +
-    '</tbody></table><p class="hint" style="margin:0">קבועות = ממוצע חודשי של החשבונות הפעילים. תשלומי אשראי = רכישות שחולקו לתשלומים.</p></section>';
+    fc.map(function (m) { var il = installmentLoad(m), fixed = beforeMove(m) ? 0 : fixedAll; return "<tr><td>" + monthTitle(m) + '</td><td class="n">' + money(fixed) + '</td><td class="n">' + money(il) + '</td><td class="n"><b>' + money(fixed + il) + "</b></td></tr>"; }).join("") +
+    '</tbody></table><p class="hint" style="margin:0">קבועות = ממוצע חודשי של החשבונות הפעילים, החל מחודש הכניסה לדירה. תשלומי אשראי = רכישות שחולקו לתשלומים.</p></section>';
 
   h += balanceCard();
 
@@ -941,7 +948,7 @@ function billSheet(id) {
     '<label class="field"><span>קטגוריה</span><select name="cat">' + catOpts(d.cat) + "</select></label></div>" +
     '<div class="grid2"><label class="field"><span>סכום משוער</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="amount" value="' + (d.amount != null ? d.amount : "") + '"></div></label>' +
     '<label class="field"><span>תדירות</span><select name="freq">' + opts([1, 2, 3, 6, 12, 0].map(function (k) { return [k, FREQ[k]]; }), d.freq) + "</select></label></div>" +
-    '<div class="grid2"><label class="field"><span>חיוב הבא</span><input type="date" name="nextDue" value="' + esc(d.nextDue || "") + '"></label>' +
+    '<div class="grid2"><label class="field"><span>חיוב הבא</span><input type="date" name="nextDue" value="' + esc(d.nextDue || (S.settings.moveDate && S.settings.moveDate >= today() ? S.settings.moveDate : "")) + '"></label>' +
     '<label class="field"><span>סוף חוזה / מבצע</span><input type="date" name="endDate" value="' + esc(d.endDate || "") + '"></label></div>' +
     '<div class="grid2"><label class="field"><span>מי משלם</span><select name="payer">' + payerSel(d.payer) + '</select></label>' +
     '<label class="field"><span>אמצעי תשלום</span><select name="method">' + opts(METHODS, d.method) + "</select></label></div>" +

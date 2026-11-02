@@ -444,6 +444,22 @@ test("HOM-05", "בית", "ספירה לאחור", "תאריך מעבר בעוד 
   await onboard(p, { moveDate: iso(29) }); assert((await p.textContent("#main")).includes("עוד 29 ימים"), "countdown");
 });
 
+test("HOM-06", "בית", "לפני הכניסה לדירה", "תאריך מעבר בחודש הבא; שכר דירה 5500, משתנות 3000 ← בית", "החודש אין סכום להעברה; מוצג שמהחודש הבא כל אחד יעביר 4,250", async p => {
+  await onboard(p, { moveDate: ymShift(1) + "-01", variable: 3000 }); await setBill(p, "שכר דירה", { amount: 5500 }); await tab(p, "home");
+  const t = await p.textContent("#main");
+  assert(t.includes("אין צורך להעביר") && t.includes("4,250") && !t.includes("כל אחד מעביר החודש"), "card: " + t.slice(t.indexOf("העברות לחשבון"), t.indexOf("העברות לחשבון") + 200));
+});
+test("HOM-07", "חשבונות", "תאריך חיוב ראשון ברירת מחדל", "תאריך מעבר בחודש הבא ← פתיחת 'שכר דירה' (בלי תאריך)", "שדה 'חיוב הבא' ממולא מראש בתאריך המעבר", async p => {
+  const d = ymShift(1) + "-01";
+  await onboard(p, { moveDate: d }); await openBill(p, "שכר דירה");
+  assert((await p.inputValue(".sheet [name=nextDue]")) === d, "nextDue " + (await p.inputValue(".sheet [name=nextDue]")));
+});
+test("REP-04", "דוחות", "תחזית מתחילה מהכניסה לדירה", "תאריך מעבר בעוד חודשיים; שכר דירה 5500 ← דוחות", "בחודש הראשון בתחזית הקבועות 0; מחודש המעבר 5,500", async p => {
+  await onboard(p, { moveDate: ymShift(2) + "-01" }); await setBill(p, "שכר דירה", { amount: 5500 }); await tab(p, "reports");
+  const vals = await p.$$eval("section.card", s => [...s.find(x => x.textContent.includes("תחזית")).querySelectorAll("tbody tr td:nth-child(2)")].map(td => td.textContent.replace(/[^\d]/g, "")));
+  assert(vals[0] === "0" && vals[1] === "5500", JSON.stringify(vals));
+});
+
 /* --- reports --- */
 test("REP-01", "דוחות", "פילוח לפי קטגוריה", "הוצאות 300 סופר + 100 סופר + 200 חשמל ← דוחות", "סה״כ 600; סופר 400 (67%)", async p => {
   await onboard(p); await addExpense(p, { amount: 300, cat: "סופר ובית" }); await addExpense(p, { amount: 100, cat: "סופר ובית" }); await addExpense(p, { amount: 200, cat: "חשמל" });
