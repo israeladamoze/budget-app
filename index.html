@@ -270,10 +270,10 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 function seed() {
   return {
     v: 1, setup: false,
-    settings: { nameA: "", nameB: "", moveDate: "", moveBudget: 50000, incomeA: 0, incomeB: 0, cats: DEFAULT_CATS.slice() },
+    settings: { nameA: "", nameB: "", moveDate: "", moveBudget: 50000, variable: 0, cats: DEFAULT_CATS.slice() },
     items: DEFAULT_ITEMS.map(function (x) { return { id: uid(), room: x[0], name: x[1], prio: x[2], planned: x[3], actual: null, status: "todo", store: "", payer: "j", method: "אשראי", inst: 1, date: "", warranty: "", note: "", removed: false }; }),
     bills: DEFAULT_BILLS.map(function (x) { return { id: uid(), name: x[0], cat: x[1], freq: x[2], amount: null, nextDue: "", method: x[3], payer: "j", endDate: "", note: "", active: true }; }),
-    expenses: [], deposits: [], settlements: [], checklist: {}, meters: { water: "", elec: "", gas: "", date: "" },
+    expenses: [], deposits: [], settlements: [], transfers: [], checklist: {}, meters: { water: "", elec: "", gas: "", date: "" },
     meta: { lastBackup: null }
   };
 }
@@ -286,7 +286,7 @@ function normalize(o) {
     settings: {
       nameA: s.nameA || "", nameB: s.nameB || "", moveDate: s.moveDate || "",
       moveBudget: typeof s.moveBudget === "number" ? s.moveBudget : 50000,
-      incomeA: +s.incomeA || 0, incomeB: +s.incomeB || 0,
+      variable: +s.variable || 0,
       cats: Array.isArray(s.cats) && s.cats.length ? s.cats : DEFAULT_CATS.slice()
     },
     items: Array.isArray(o.items) ? o.items : base.items,
@@ -294,6 +294,7 @@ function normalize(o) {
     expenses: Array.isArray(o.expenses) ? o.expenses : [],
     deposits: Array.isArray(o.deposits) ? o.deposits : [],
     settlements: Array.isArray(o.settlements) ? o.settlements : [],
+    transfers: Array.isArray(o.transfers) ? o.transfers : [],
     checklist: o.checklist && typeof o.checklist === "object" ? o.checklist : {},
     meters: o.meters && typeof o.meters === "object" ? o.meters : base.meters,
     meta: o.meta && typeof o.meta === "object" ? o.meta : { lastBackup: null }
@@ -385,6 +386,9 @@ function spendIn(ym) { return allSpending().filter(function (x) { return ymOf(x.
 function balance() {
   var all = allSpending(), pa = sum(all.filter(function (x) { return x.payer === "a"; }), function (x) { return x.amount; }),
       pb = sum(all.filter(function (x) { return x.payer === "b"; }), function (x) { return x.amount; });
+  var ta = sum(S.transfers.filter(function (t) { return t.who === "a"; }), function (t) { return t.amount; }),
+      tb = sum(S.transfers.filter(function (t) { return t.who === "b"; }), function (t) { return t.amount; });
+  pa += ta; pb += tb;
   var diff = (pa - pb) / 2; // >0 → B owes A
   S.settlements.forEach(function (s) { diff += s.from === "a" ? s.amount : -s.amount; });
   return { pa: pa, pb: pb, diff: Math.round(diff * 100) / 100 };
@@ -400,6 +404,17 @@ function installmentLoad(ym) {
     var start = ymOf(x.date), k = monthsBetween(start, ym);
     return k >= 0 && k < x.inst ? x.amount / x.inst : 0;
   });
+}
+function needPerMonth() {
+  var fixed = sum(S.bills.filter(function (b) { return b.payer === "j"; }), monthlyOfBill);
+  return { fixed: fixed, variable: +S.settings.variable || 0, total: fixed + (+S.settings.variable || 0) };
+}
+function transfersIn(ym) { return S.transfers.filter(function (t) { return ymOf(t.date) === ym; }); }
+function jointMonth(ym) {
+  var inn = sum(transfersIn(ym), function (t) { return t.amount; });
+  var out = sum(spendIn(ym).filter(function (x) { return x.payer === "j" && x.cat !== MOVE_CAT; }), function (x) { return x.amount; });
+  var unpaid = sum(billsDueIn(ym).filter(function (b) { return b.payer === "j"; }), function (b) { return b.amount || 0; });
+  return { inn: inn, out: out, unpaid: unpaid, left: inn - out - unpaid };
 }
 function monthsBetween(a, b) { var pa = a.split("-"), pb = b.split("-"); return (+pb[0] - +pa[0]) * 12 + (+pb[1] - +pa[1]); }
 
@@ -442,22 +457,20 @@ function renderWelcome() {
     '<label class="field"><span>בן/בת הזוג</span><input type="text" name="nameB" value="' + esc(s.nameB) + '" required></label></div>' +
     '<label class="field"><span>תאריך המעבר</span><input type="date" name="moveDate" value="' + esc(s.moveDate) + '"></label>' +
     '<label class="field"><span>תקציב כולל למעבר</span><div class="money"><input type="number" inputmode="decimal" name="moveBudget" value="' + (s.moveBudget || "") + '"></div><span class="hint">ריהוט, מוצרי חשמל, הובלה וכל העלויות החד־פעמיות.</span></label>' +
-    '<div class="grid2"><label class="field"><span>הכנסה חודשית נטו – שלי</span><div class="money"><input type="number" inputmode="decimal" name="incomeA" value="' + (s.incomeA || "") + '"></div></label>' +
-    '<label class="field"><span>הכנסה – בן/בת הזוג</span><div class="money"><input type="number" inputmode="decimal" name="incomeB" value="' + (s.incomeB || "") + '"></div></label></div>' +
-    '<p class="hint" style="margin:0">ההוצאות מתחלקות 50/50. יצרנו לכם רשימת קניות למעבר ורשימת חשבונות קבועים – אפשר להוסיף, לערוך ולהסיר הכול.</p>' +
+    variableField(s) +
+    '<p class="hint" style="margin:0">כל אחד מעביר לחשבון המשותף חצי מההוצאות הצפויות. האפליקציה תחשב כמה. יצרנו לכם רשימת קניות למעבר ורשימת חשבונות קבועים – אפשר להוסיף, לערוך ולהסיר הכול.</p>' +
     '<button class="btn primary wide" type="submit">יאללה, מתחילים</button></form></div>';
 }
 
 /* ================= home ================= */
 function renderHome() {
   var s = S.settings, ym = curYm(), mt = moveTotals(), spent = sum(spendIn(ym).filter(function (x) { return x.cat !== MOVE_CAT; }), function (x) { return x.amount; });
-  var income = (+s.incomeA || 0) + (+s.incomeB || 0);
-  var dueBills = billsDueIn(ym), unpaid = sum(dueBills, function (b) { return b.amount || 0; });
-  var free = income - spent - unpaid;
+  var j = jointMonth(ym);
   var h = topbar("שלום " + esc(s.nameA || "") + (s.nameB ? " ו" + esc(s.nameB) : ""), monthTitle(ym));
   h += alertsHtml();
-  h += '<section class="hero"><div><div class="k">נשאר לבזבז החודש</div><div class="big">' + money(free) + "</div></div>" +
-    '<div class="cols"><div><span>הכנסות</span><b>' + money(income) + "</b></div><div><span>הוצאנו</span><b>" + money(spent) + "</b></div><div><span>חשבונות צפויים</span><b>" + money(unpaid) + '</b></div></div><div class="k">בלי קניות המעבר – הן נספרות בתקציב המעבר</div></section>';
+  h += '<section class="hero"><div><div class="k">נשאר בחשבון המשותף החודש</div><div class="big">' + money(j.left) + "</div></div>" +
+    '<div class="cols"><div><span>הועבר אליו</span><b>' + money(j.inn) + "</b></div><div><span>יצא ממנו</span><b>" + money(j.out) + "</b></div><div><span>חשבונות צפויים</span><b>" + money(j.unpaid) + '</b></div></div><div class="k">בלי קניות המעבר – הן נספרות בתקציב המעבר</div></section>';
+  h += transferCard(ym);
 
   // move
   var pct = mt.budget ? Math.min(100, mt.spent / mt.budget * 100) : 0, cls = pct >= 100 ? "bad" : pct >= 80 ? "warn" : "";
@@ -488,15 +501,55 @@ function renderHome() {
     (rec.length ? '<div class="list">' + rec.map(spendRow).join("") + "</div>" : '<div class="empty">עוד לא נרשמו הוצאות. לחצו על + כדי להוסיף.</div>') + "</section>";
   return h;
 }
+function variableField(s) {
+  return '<label class="field"><span>תקציב חודשי להוצאות משתנות מהחשבון המשותף</span><div class="money"><input type="number" inputmode="decimal" name="variable" value="' + (s.variable || "") + '" placeholder="למשל 3000"></div><span class="hint">סופר, דלק, בילויים וכו׳. החשבונות הקבועים מחושבים לבד.</span></label>';
+}
+function transferCard(ym) {
+  var need = needPerMonth(), half = Math.round(need.total / 2), ts = transfersIn(ym);
+  var ga = sum(ts.filter(function (t) { return t.who === "a"; }), function (t) { return t.amount; }),
+      gb = sum(ts.filter(function (t) { return t.who === "b"; }), function (t) { return t.amount; });
+  function line(p, g) {
+    var pct = half ? Math.min(100, g / half * 100) : 0, done = half && g >= half;
+    return '<div class="hb"><div class="row spread"><span>' + payerChip(p) + "</span><span>" + money(g) + ' <span class="muted small">מתוך ' + moneyT(half) + "</span>" + (done ? ' <span class="chip done">✓</span>' : "") + '</span></div><div class="bar"><i style="width:' + pct + '%"></i></div></div>';
+  }
+  return '<section class="card"><div class="row spread"><h2>העברות לחשבון המשותף</h2><span class="chip">' + MONTHS[+ym.slice(5) - 1] + "</span></div>" +
+    (need.total ? '<div class="small">כל אחד מעביר החודש <b>' + money(half) + '</b> <span class="muted">(חשבונות קבועים ' + moneyT(Math.round(need.fixed)) + " + משתנות " + moneyT(need.variable) + ", חלקי 2)</span></div>" :
+      '<div class="small muted">כדי לקבל הצעה כמה להעביר – הגדירו סכומים לחשבונות ותקציב להוצאות משתנות בהגדרות.</div>') +
+    '<div class="hbars">' + line("a", ga) + line("b", gb) + "</div>" +
+    (ts.length ? '<div class="list">' + ts.map(function (t) {
+      return '<button class="li" data-act="edit-transfer" data-id="' + t.id + '"><div class="main"><div class="t">' + esc(nameOf(t.who)) + ' העביר/ה</div><div class="s">' + shortDate(t.date) + (t.note ? " · " + esc(t.note) : "") + '</div></div><div class="amt">' + money(t.amount) + "</div></button>";
+    }).join("") + "</div>" : "") +
+    '<button class="btn soft" data-act="add-transfer">רישום העברה</button></section>';
+}
+function transferSheet(id) {
+  var t = id ? S.transfers.find(function (x) { return x.id === id; }) : null, half = Math.round(needPerMonth().total / 2);
+  var d = t || { who: "a", amount: half || "", date: today() };
+  openSheet("<h3>" + (t ? "עריכת העברה" : "העברה לחשבון המשותף") + '</h3><form id="f" style="display:grid;gap:12px">' +
+    '<label class="field"><span>מי העביר</span><select name="who">' + opts([["a", nameOf("a")], ["b", nameOf("b")]], d.who) + "</select></label>" +
+    '<div class="grid2"><label class="field"><span>סכום</span><div class="money"><input type="number" inputmode="decimal" name="amount" value="' + d.amount + '" required></div></label>' +
+    '<label class="field"><span>תאריך</span><input type="date" name="date" value="' + esc(d.date) + '"></label></div>' +
+    noteField(d.note) + '<button class="btn primary wide" type="submit">שמירה</button>' +
+    (t ? '<button class="btn danger wide" type="button" data-act="delete-transfer" data-id="' + t.id + '">מחיקה</button>' : "") + "</form>",
+  function (el) {
+    $("#f", el).onsubmit = function (ev) {
+      ev.preventDefault(); var f = formData(ev.target), amt = num(f.amount);
+      if (!amt || amt <= 0) { toast("צריך להזין סכום"); return; }
+      var rec = t || { id: uid() };
+      rec.who = f.who; rec.amount = amt; rec.date = f.date || today(); rec.note = f.note.trim();
+      if (!t) S.transfers.push(rec);
+      save(); closeSheet(); render(); toast("ההעברה נרשמה");
+    };
+  });
+}
 function balanceCard() {
   var b = balance(), txt;
   if (Math.abs(b.diff) < 1) txt = "אתם מאוזנים 👌";
   else txt = esc(b.diff > 0 ? nameOf("b") : nameOf("a")) + " צריך/ה להעביר ל" + esc(b.diff > 0 ? nameOf("a") : nameOf("b")) + " " + money(Math.abs(b.diff));
   return '<section class="card"><div class="row spread"><h2>מי חייב למי</h2><span class="chip">חלוקה 50/50</span></div>' +
     '<div style="font-size:17px;font-weight:700">' + txt + "</div>" +
-    '<div class="row small muted"><span>' + esc(nameOf("a")) + " שילם/ה מכיסו/ה " + money(b.pa) + "</span><span>·</span><span>" + esc(nameOf("b")) + " " + money(b.pb) + "</span></div>" +
+    '<div class="row small muted"><span>' + esc(nameOf("a")) + " נתן/ה " + money(b.pa) + "</span><span>·</span><span>" + esc(nameOf("b")) + " " + money(b.pb) + "</span></div>" +
     (Math.abs(b.diff) >= 1 ? '<button class="btn soft" data-act="settle">רשמנו העברה – סגירת חשבון</button>' : "") +
-    '<p class="hint" style="margin:0">הוצאות מהחשבון המשותף לא נכנסות לחישוב.</p></section>';
+    '<p class="hint" style="margin:0">נספרות העברות לחשבון המשותף והוצאות משותפות שכל אחד שילם מהחשבון הפרטי שלו.</p></section>';
 }
 function alertsHtml() {
   var out = [];
@@ -720,8 +773,7 @@ function renderSettings() {
   return '<header class="top"><h1>הגדרות</h1><button class="btn sm" data-act="go" data-v="home">סגירה</button></header>' +
     '<form class="card" id="settings-form"><h2>פרטים</h2>' +
     '<div class="grid2"><label class="field"><span>שם – א׳</span><input type="text" name="nameA" value="' + esc(s.nameA) + '"></label><label class="field"><span>שם – ב׳</span><input type="text" name="nameB" value="' + esc(s.nameB) + '"></label></div>' +
-    '<div class="grid2"><label class="field"><span>הכנסה – ' + esc(nameOf("a")) + '</span><div class="money"><input type="number" inputmode="decimal" name="incomeA" value="' + (s.incomeA || "") + '"></div></label>' +
-    '<label class="field"><span>הכנסה – ' + esc(nameOf("b")) + '</span><div class="money"><input type="number" inputmode="decimal" name="incomeB" value="' + (s.incomeB || "") + '"></div></label></div>' +
+    variableField(s) +
     '<div class="grid2"><label class="field"><span>תאריך מעבר</span><input type="date" name="moveDate" value="' + esc(s.moveDate) + '"></label>' +
     '<label class="field"><span>תקציב מעבר</span><div class="money"><input type="number" inputmode="decimal" name="moveBudget" value="' + (s.moveBudget || "") + '"></div></label></div>' +
     '<button class="btn primary" type="submit">שמירה</button></form>' +
@@ -753,7 +805,7 @@ function confirmSheet(title, text, buttons) {
   });
 }
 function opts(list, sel) { return list.map(function (o) { var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(v) + '"' + (String(v) === String(sel) ? " selected" : "") + ">" + esc(l) + "</option>"; }).join(""); }
-function payerSel(sel) { return opts([["j", "משותף"], ["a", nameOf("a")], ["b", nameOf("b")]], sel || "j"); }
+function payerSel(sel) { return opts([["j", "החשבון המשותף"], ["a", nameOf("a")], ["b", nameOf("b")]], sel || "j"); }
 function formData(form) { var o = {}; $$("[name]", form).forEach(function (el) { o[el.name] = el.type === "checkbox" ? el.checked : el.value; }); return o; }
 function noteField(v) { return '<label class="field"><span>הערה</span><textarea name="note" maxlength="500" placeholder="לא חובה">' + esc(v || "") + "</textarea></label>"; }
 
@@ -1108,11 +1160,16 @@ function buildExport(o) {
     sr.push([{ v: "נשאר בתקציב", s: ST.sumL }, { f: "B" + (sr.length - 2) + "-B" + sr.length, v: mt.budget - mt.spent, s: ST.sumM }]);
     sr.push(null);
     var b = balance();
+    var trs = S.transfers.filter(function (t) { var m = ymOf(t.date); return (!o.from || m >= o.from) && (!o.to || m <= o.to); });
+    sr.push([{ v: "העברות לחשבון המשותף (" + o.label + ")", s: ST.head }, { v: "סכום", s: ST.head }]);
+    sr.push([{ v: nameOf("a") }, { v: sum(trs.filter(function (t) { return t.who === "a"; }), function (t) { return t.amount; }), s: ST.money }]);
+    sr.push([{ v: nameOf("b") }, { v: sum(trs.filter(function (t) { return t.who === "b"; }), function (t) { return t.amount; }), s: ST.money }]);
+    sr.push(null);
     sr.push([{ v: "איזון בין בני הזוג (50/50, כל התקופה)", s: ST.head }, { v: "סכום", s: ST.head }]);
-    sr.push([{ v: nameOf("a") + " שילם/ה מכיסו/ה" }, { v: b.pa, s: ST.money }]);
-    sr.push([{ v: nameOf("b") + " שילם/ה מכיסו/ה" }, { v: b.pb, s: ST.money }]);
+    sr.push([{ v: nameOf("a") + " – העברות + תשלומים מהחשבון הפרטי" }, { v: b.pa, s: ST.money }]);
+    sr.push([{ v: nameOf("b") + " – העברות + תשלומים מהחשבון הפרטי" }, { v: b.pb, s: ST.money }]);
     sr.push([{ v: Math.abs(b.diff) < 1 ? "מאוזנים" : (b.diff > 0 ? nameOf("b") + " מעביר/ה ל" + nameOf("a") : nameOf("a") + " מעביר/ה ל" + nameOf("b")), s: ST.sumL }, { v: Math.abs(b.diff), s: ST.sumM }]);
-    sheets.push({ name: "סיכום", rows: sr, widths: [38, 15, 10], freeze: 0, merges: ["A1:C1", "A2:C2"], heights: { 0: 24, 3: 22 } });
+    sheets.push({ name: "סיכום", rows: sr, widths: [44, 15, 10], freeze: 0, merges: ["A1:C1", "A2:C2"], heights: { 0: 24, 3: 22 } });
   }
   var out = sheets.filter(function (s) { return !s.hidden; });
   // the summary formulas need the expenses sheet; keep it if summary is on
@@ -1170,6 +1227,9 @@ var ACTS = {
   "edit-deposit": function (el) { depositSheet(el.dataset.id); },
   "delete-deposit": function (el) { var id = el.dataset.id; S.deposits = S.deposits.filter(function (x) { return x.id !== id; }); save(); closeSheet(); render(); },
   settle: settleSheet,
+  "add-transfer": function () { transferSheet(null); },
+  "edit-transfer": function (el) { transferSheet(el.dataset.id); },
+  "delete-transfer": function (el) { var id = el.dataset.id; S.transfers = S.transfers.filter(function (x) { return x.id !== id; }); save(); closeSheet(); render(); },
   "exp-month": function (el) { expYm = ymAdd(expYm, +el.dataset.d); render(); },
   "rep-month": function (el) { repYm = ymAdd(repYm, +el.dataset.d); render(); },
   "export-xlsx": function () { var x = makeXlsx(); if (x) offerFile(x.name, x.blob).then(function (s) { if (s === "saved") toast("הקובץ ירד: " + x.name); }); },
@@ -1223,7 +1283,7 @@ document.addEventListener("submit", function (ev) {
   if (f.id === "welcome-form" || f.id === "settings-form") {
     ev.preventDefault(); var d = formData(f), s = S.settings;
     s.nameA = d.nameA.trim(); s.nameB = d.nameB.trim(); s.moveDate = d.moveDate;
-    s.moveBudget = num(d.moveBudget) || 0; s.incomeA = num(d.incomeA) || 0; s.incomeB = num(d.incomeB) || 0;
+    s.moveBudget = num(d.moveBudget) || 0; s.variable = num(d.variable) || 0;
     if (f.id === "welcome-form") { S.setup = true; view = "home"; } else toast("נשמר");
     save(); render();
   }
