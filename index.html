@@ -1,0 +1,1239 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0EA5E9">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="תקציב">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>תקציב הבית</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap">
+<style>
+:root {
+  --bg: #F1F7FB;
+  --surface: #FFFFFF;
+  --sunk: #EAF4FA;
+  --ink: #0B2A3C;
+  --muted: #5A7385;
+  --line: #D5E5EF;
+  --sky: #38BDF8;
+  --accent: #0284C7;
+  --accent-2: #0EA5E9;
+  --accent-soft: #E0F2FE;
+  --accent-ink: #FFFFFF;
+  --good: #15803D;
+  --good-bg: #E8F7EE;
+  --warn: #B45309;
+  --warn-bg: #FFF6E5;
+  --bad: #C62828;
+  --bad-bg: #FDECEC;
+  --pa: #0EA5E9;
+  --pb: #8B5CF6;
+  --pj: #14B8A6;
+  --font: "Heebo", "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+  --r: 18px;
+  --shadow: 0 1px 2px rgba(11, 42, 60, .05), 0 4px 16px rgba(11, 42, 60, .06);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font-family: var(--font); font-size: 15px; line-height: 1.5; -webkit-tap-highlight-color: transparent; }
+body.locked { overflow: hidden; }
+[hidden] { display: none !important; }
+button, input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+.num { font-variant-numeric: tabular-nums; direction: ltr; unicode-bidi: isolate; }
+.app { max-width: 560px; margin: 0 auto; padding: calc(12px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) calc(110px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 14px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 4px; }
+.top h1 { font-size: 22px; font-weight: 800; }
+.top .sub { color: var(--muted); font-size: 13.5px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; min-width: 0; box-shadow: var(--shadow); }
+.card h2 { font-size: 16px; font-weight: 700; }
+.label { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; min-width: 0; }
+.spread { justify-content: space-between; }
+.grow { flex: 1; min-width: 0; }
+
+/* hero */
+.hero { background: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%); color: #fff; border-radius: 22px; padding: 18px; display: grid; gap: 12px; box-shadow: 0 8px 24px rgba(2, 132, 199, .25); }
+.hero .k { font-size: 13px; opacity: .9; }
+.hero .big { font-size: 32px; font-weight: 800; line-height: 1.1; }
+.hero .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.hero .cols div { background: rgba(255, 255, 255, .16); border-radius: 12px; padding: 8px 10px; min-width: 0; }
+.hero .cols b { display: block; font-size: 16px; font-weight: 700; }
+.hero .cols span { font-size: 12px; opacity: .92; }
+
+/* progress */
+.bar { height: 10px; border-radius: 99px; background: var(--sunk); overflow: hidden; position: relative; }
+.bar > i { position: absolute; inset-block: 0; right: 0; border-radius: 99px; background: var(--accent-2); }
+.bar.warn > i { background: #F59E0B; }
+.bar.bad > i { background: #EF4444; }
+
+/* stats */
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stat { background: var(--sunk); border-radius: 12px; padding: 10px; min-width: 0; }
+.stat .v { font-size: 17px; font-weight: 700; }
+.stat .k { font-size: 12px; color: var(--muted); }
+
+/* banners */
+.banner { border-radius: 14px; padding: 11px 14px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; font-size: 14px; border: 1px solid; }
+.banner.info { background: var(--accent-soft); border-color: #BAE3F8; }
+.banner.warn { background: var(--warn-bg); border-color: #F6D9A8; }
+.banner.bad { background: var(--bad-bg); border-color: #F5C2C2; }
+.banner.good { background: var(--good-bg); border-color: #BFE6CC; }
+
+/* lists */
+.list { display: grid; }
+.li { display: flex; align-items: center; gap: 12px; padding: 11px 2px; border-top: 1px solid var(--line); min-width: 0; cursor: pointer; background: none; border-inline: 0; border-bottom: 0; text-align: right; width: 100%; }
+.li:first-child { border-top: 0; }
+.li .main { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.li .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.li .s { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.li .amt { font-weight: 700; white-space: nowrap; text-align: left; display: grid; justify-items: end; }
+.li .amt small { font-weight: 500; font-size: 12px; color: var(--muted); }
+.li.removed { opacity: .6; }
+.li.removed .t { text-decoration: line-through; }
+.ic { width: 38px; height: 38px; flex: none; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 15px; }
+.ic svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+/* chips */
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 99px; font-size: 11.5px; font-weight: 600; background: var(--sunk); color: var(--muted); white-space: nowrap; }
+.chip.a { background: #E0F2FE; color: #0369A1; }
+.chip.b { background: #EDE9FE; color: #6D28D9; }
+.chip.j { background: #CCFBF1; color: #0F766E; }
+.chip.now { background: var(--bad-bg); color: var(--bad); }
+.chip.month { background: var(--warn-bg); color: var(--warn); }
+.chip.later { background: var(--sunk); color: var(--muted); }
+.chip.done { background: var(--good-bg); color: var(--good); }
+.chip.note { background: #FFF8DB; color: #8A6D00; }
+
+/* room group */
+.room { display: grid; gap: 4px; }
+.room-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.room-h h2 { font-size: 16px; }
+
+/* segmented */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; background: var(--sunk); border-radius: 12px; padding: 4px; }
+.seg button { border: 0; background: none; border-radius: 9px; padding: 8px 6px; cursor: pointer; font-weight: 600; font-size: 14px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--accent); box-shadow: 0 1px 3px rgba(11, 42, 60, .12); }
+
+/* fields */
+.field { display: grid; gap: 5px; min-width: 0; }
+.field > span { font-size: 13px; font-weight: 600; color: var(--muted); }
+input[type="text"], input[type="number"], input[type="date"], input[type="month"], input[type="search"], select, textarea {
+  width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; min-height: 46px; }
+input[type="date"], input[type="month"] { -webkit-appearance: none; appearance: none; text-align: right; display: block; }
+textarea { min-height: 70px; resize: vertical; }
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.money { position: relative; }
+.money input { padding-left: 34px; direction: ltr; text-align: right; }
+.money::after { content: "₪"; position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.grid2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.hint { font-size: 12.5px; color: var(--muted); }
+.check { display: flex; gap: 10px; align-items: center; font-size: 14.5px; cursor: pointer; }
+.check input { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+
+/* buttons */
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 9px 14px; cursor: pointer; font-weight: 600; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.soft { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.btn.danger { color: var(--bad); }
+.btn.sm { min-height: 34px; padding: 4px 10px; font-size: 13.5px; border-radius: 10px; }
+.btn.wide { width: 100%; }
+.btn.link { border: 0; background: none; padding: 2px 0; min-height: 0; color: var(--accent); }
+.iconbtn { width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; display: grid; place-items: center; flex: none; }
+.iconbtn svg { width: 20px; height: 20px; stroke: var(--ink); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.btns .btn { flex: 1; }
+
+/* month nav */
+.monthnav { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.monthnav h2 { font-size: 17px; }
+
+/* bars chart */
+.hbars { display: grid; gap: 10px; }
+.hb { display: grid; gap: 4px; }
+.hb .row { font-size: 14px; }
+.vbars { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; align-items: end; height: 150px; }
+.vb { display: grid; gap: 4px; align-items: end; height: 100%; grid-template-rows: auto 1fr auto; text-align: center; }
+.vb i { display: block; background: var(--sky); border-radius: 8px 8px 3px 3px; min-height: 3px; align-self: end; }
+.vb.cur i { background: var(--accent); }
+.vb .v { font-size: 11px; color: var(--muted); }
+.vb .m { font-size: 12px; font-weight: 600; }
+
+table.t { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.t th { text-align: right; color: var(--muted); font-weight: 600; font-size: 12px; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+table.t td { padding: 8px 4px; border-bottom: 1px solid var(--line); }
+table.t td.n, table.t th.n { text-align: left; }
+.over { color: var(--bad); font-weight: 600; }
+.under { color: var(--good); font-weight: 600; }
+
+/* tabs */
+.tabs { position: fixed; z-index: 30; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); max-width: 560px; margin: 0 auto; background: rgba(255, 255, 255, .96); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 22px; padding: 6px; box-shadow: 0 8px 28px rgba(11, 42, 60, .14); }
+.tabs .in { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
+.tabs button { border: 0; background: none; border-radius: 16px; padding: 6px 2px; min-height: 52px; cursor: pointer; display: grid; justify-items: center; align-content: center; gap: 1px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.tabs svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.tabs button[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+
+.fab { position: fixed; z-index: 31; left: max(20px, calc(50% - 260px)); bottom: calc(86px + env(safe-area-inset-bottom, 0px)); width: 58px; height: 58px; border-radius: 20px; border: 0; background: var(--accent); color: #fff; box-shadow: 0 8px 22px rgba(2, 132, 199, .4); cursor: pointer; display: grid; place-items: center; }
+.fab svg { width: 28px; height: 28px; stroke: #fff; stroke-width: 2.4; fill: none; stroke-linecap: round; }
+
+/* sheet */
+.scrim { position: fixed; inset: 0; z-index: 40; background: rgba(11, 42, 60, .38); display: flex; align-items: flex-end; justify-content: center; }
+.sheet { background: var(--surface); width: 100%; max-width: 560px; max-height: 92%; overflow: auto; border-radius: 22px 22px 0 0; padding: 18px max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 14px; }
+.sheet .grab { width: 40px; height: 5px; border-radius: 9px; background: var(--line); margin: -6px auto 0; }
+.sheet h3 { font-size: 19px; }
+@media (min-width: 640px) { .scrim { align-items: center; } .sheet { border-radius: 22px; } }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(160px + env(safe-area-inset-bottom, 0px)); z-index: 50; background: var(--ink); color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 14px; max-width: calc(100% - 32px); box-shadow: 0 6px 20px rgba(0, 0, 0, .2); }
+.empty { text-align: center; color: var(--muted); padding: 18px 8px; font-size: 14px; }
+.count { font-size: 44px; font-weight: 800; line-height: 1; }
+.welcome { min-height: 100vh; display: grid; align-content: center; gap: 16px; }
+.logo { width: 64px; height: 64px; border-radius: 20px; background: linear-gradient(135deg, #38BDF8, #0284C7); display: grid; place-items: center; box-shadow: 0 8px 22px rgba(2, 132, 199, .3); }
+.logo svg { width: 34px; height: 34px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.search { position: relative; }
+.search input { padding-right: 38px; }
+.search svg { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; stroke: var(--muted); fill: none; stroke-width: 2; }
+details summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+</style>
+</head>
+<body>
+<div id="main" class="app"></div>
+<nav class="tabs" id="tabs" hidden><div class="in"></div></nav>
+<button class="fab" id="fab" hidden aria-label="הוספת הוצאה" data-act="add-expense"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+<div id="sheet-root"></div>
+<div id="toast-root"></div>
+<input type="file" id="import-file" accept="application/json,.json" hidden>
+<script>
+(function () {
+"use strict";
+
+/* ================= constants ================= */
+var KEY = "budget.v1";
+var MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+var MONTHS_S = ["ינו׳", "פבר׳", "מרץ", "אפר׳", "מאי", "יוני", "יולי", "אוג׳", "ספט׳", "אוק׳", "נוב׳", "דצמ׳"];
+var ROOMS = [
+  ["elec", "מוצרי חשמל"], ["bedroom", "חדר שינה"], ["living", "סלון ופינת אוכל"], ["kitchen", "מטבח"],
+  ["bath", "אמבטיה וכביסה"], ["home", "כללי לבית"], ["move", "עלויות המעבר"]
+];
+var ROOM = {}; ROOMS.forEach(function (r) { ROOM[r[0]] = r[1]; });
+var PRIO = { now: "חובה מיד", month: "חודש ראשון", later: "יכול לחכות" };
+var STATUS = { todo: "לבדוק", ordered: "הוזמן", got: "התקבל", returned: "הוחזר" };
+var METHODS = ["אשראי", "מזומן", "העברה בנקאית", "הוראת קבע", "צ׳ק", "ביט / פייבוקס"];
+var FREQ = { 1: "חודשי", 2: "דו־חודשי", 3: "רבעוני", 6: "חצי־שנתי", 12: "שנתי", 0: "לפי צורך" };
+var DEFAULT_CATS = ["מעבר דירה", "שכר דירה", "ארנונה", "מים", "חשמל", "גז", "ועד בית", "אינטרנט וטלפון", "ביטוח",
+  "סופר ובית", "תחבורה", "מנויים", "תיקונים ותחזוקה", "בילויים ואוכל בחוץ", "אחר"];
+var MOVE_CAT = "מעבר דירה";
+
+var DEFAULT_ITEMS = [
+  ["elec", "מקרר", "now", 4500], ["elec", "מכונת כביסה", "now", 2500], ["elec", "תנור / כיריים", "now", 3000],
+  ["elec", "נתב / ציוד רשת", "now", 300], ["elec", "מיקרוגל", "month", 500], ["elec", "שואב אבק", "month", 1200],
+  ["elec", "קומקום, טוסטר, מכונת קפה", "month", 800], ["elec", "מייבש כביסה", "later", 2200],
+  ["elec", "מדיח כלים", "later", 2500], ["elec", "מזגן + התקנה", "later", 3000], ["elec", "טלוויזיה", "later", 2500],
+  ["bedroom", "מיטה + מזרן", "now", 5000], ["bedroom", "מצעים, שמיכות וכריות", "now", 1200], ["bedroom", "ארון בגדים", "month", 3000],
+  ["living", "ספה", "month", 4500], ["living", "שולחן אוכל + כיסאות", "month", 2500], ["living", "וילונות / תריסים", "month", 1500],
+  ["living", "תאורה ומנורות", "month", 800], ["living", "שולחן עבודה + כיסא", "later", 1500], ["living", "שטיחים, מראות ומדפים", "later", 1000],
+  ["kitchen", "כלי מטבח, סירים וסכו״ם", "now", 1500],
+  ["bath", "מגבות ואביזרי אמבטיה", "now", 400], ["bath", "ציוד ניקיון ופחים", "now", 500],
+  ["home", "כלי עבודה בסיסיים", "month", 300],
+  ["move", "הובלה", "now", 2500], ["move", "קרטונים וחומרי אריזה", "now", 300], ["move", "ניקיון יסודי", "now", 600],
+  ["move", "צבע ותיקונים בדירה הישנה", "now", 1000], ["move", "דמי תיווך (אם יש)", "now", 0],
+  ["move", "החלפת מנעול / שכפול מפתחות", "now", 300], ["move", "אוכל בחוץ בימים הראשונים", "now", 500],
+  ["move", "התקנות (מנורות, מדפים, מכונה)", "month", 600]
+];
+var DEFAULT_BILLS = [
+  ["שכר דירה", "שכר דירה", 1, "הוראת קבע"], ["ארנונה", "ארנונה", 2, "הוראת קבע"], ["מים", "מים", 2, "אשראי"],
+  ["חשמל", "חשמל", 2, "אשראי"], ["גז", "גז", 0, "אשראי"], ["ועד בית", "ועד בית", 1, "מזומן"],
+  ["אינטרנט", "אינטרנט וטלפון", 1, "אשראי"], ["ביטוח תכולה", "ביטוח", 12, "אשראי"]
+];
+var CHECKLIST = [
+  ["meters", "קריאת מונים ביום הכניסה + צילום (מים, חשמל, גז)"],
+  ["arnona", "העברת ארנונה על שמנו"], ["water", "העברת חשבון מים"], ["elec", "העברת חשבון חשמל"],
+  ["gas", "העברת / חיבור גז"], ["net", "הזמנת אינטרנט / העברת ספק"], ["vaad", "פרטי ועד בית"],
+  ["ins", "ביטוח תכולה"], ["addr", "שינוי כתובת במשרד הפנים"], ["car", "שינוי כתובת ברישיון רכב"],
+  ["kupa", "עדכון כתובת בקופת חולים"], ["bank", "עדכון כתובת בבנק"], ["btl", "עדכון כתובת בביטוח לאומי"],
+  ["mail", "הפניית דואר מהכתובת הישנה"], ["deposit", "תיאום החזרת פיקדון בדירה הישנה"]
+];
+
+/* ================= storage ================= */
+var storageOK = true;
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function seed() {
+  return {
+    v: 1, setup: false,
+    settings: { nameA: "", nameB: "", moveDate: "", moveBudget: 50000, incomeA: 0, incomeB: 0, cats: DEFAULT_CATS.slice() },
+    items: DEFAULT_ITEMS.map(function (x) { return { id: uid(), room: x[0], name: x[1], prio: x[2], planned: x[3], actual: null, status: "todo", store: "", payer: "j", method: "אשראי", inst: 1, date: "", warranty: "", note: "", removed: false }; }),
+    bills: DEFAULT_BILLS.map(function (x) { return { id: uid(), name: x[0], cat: x[1], freq: x[2], amount: null, nextDue: "", method: x[3], payer: "j", endDate: "", note: "", active: true }; }),
+    expenses: [], deposits: [], settlements: [], checklist: {}, meters: { water: "", elec: "", gas: "", date: "" },
+    meta: { lastBackup: null }
+  };
+}
+function normalize(o) {
+  var base = seed();
+  if (!o || typeof o !== "object") return base;
+  var s = o.settings || {};
+  return {
+    v: 1, setup: !!o.setup,
+    settings: {
+      nameA: s.nameA || "", nameB: s.nameB || "", moveDate: s.moveDate || "",
+      moveBudget: typeof s.moveBudget === "number" ? s.moveBudget : 50000,
+      incomeA: +s.incomeA || 0, incomeB: +s.incomeB || 0,
+      cats: Array.isArray(s.cats) && s.cats.length ? s.cats : DEFAULT_CATS.slice()
+    },
+    items: Array.isArray(o.items) ? o.items : base.items,
+    bills: Array.isArray(o.bills) ? o.bills : base.bills,
+    expenses: Array.isArray(o.expenses) ? o.expenses : [],
+    deposits: Array.isArray(o.deposits) ? o.deposits : [],
+    settlements: Array.isArray(o.settlements) ? o.settlements : [],
+    checklist: o.checklist && typeof o.checklist === "object" ? o.checklist : {},
+    meters: o.meters && typeof o.meters === "object" ? o.meters : base.meters,
+    meta: o.meta && typeof o.meta === "object" ? o.meta : { lastBackup: null }
+  };
+}
+function load() {
+  try { var raw = localStorage.getItem(KEY); return raw ? normalize(JSON.parse(raw)) : seed(); }
+  catch (e) { storageOK = false; return seed(); }
+}
+var S = load();
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); storageOK = true; }
+  catch (e) { storageOK = false; toast("לא ניתן לשמור במכשיר. מומלץ להוריד גיבוי."); }
+}
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+
+/* ================= helpers ================= */
+function $(s, r) { return (r || document).querySelector(s); }
+function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function pad(n) { return (n < 10 ? "0" : "") + n; }
+function isoOf(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+function parseIso(s) { var p = s.split("-"); return new Date(+p[0], +p[1] - 1, +(p[2] || 1)); }
+function today() { return isoOf(new Date()); }
+function ymOf(iso) { return iso ? iso.slice(0, 7) : ""; }
+function curYm() { return ymOf(today()); }
+function addMonths(iso, n) {
+  var d = parseIso(iso), day = d.getDate();
+  var t = new Date(d.getFullYear(), d.getMonth() + n, 1);
+  var last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+  t.setDate(Math.min(day, last)); return isoOf(t);
+}
+function ymAdd(ym, n) { return ymOf(addMonths(ym + "-01", n)); }
+function daysUntil(iso) { var a = parseIso(today()), b = parseIso(iso); return Math.round((b - a) / 864e5); }
+function shortDate(iso) { if (!iso) return ""; var d = parseIso(iso); return pad(d.getDate()) + "/" + pad(d.getMonth() + 1) + "/" + String(d.getFullYear()).slice(2); }
+function monthTitle(ym) { var p = ym.split("-"); return MONTHS[+p[1] - 1] + " " + p[0]; }
+var NF = new Intl.NumberFormat("he-IL", { maximumFractionDigits: 2 });
+function money(n) { n = +n || 0; return '<span class="num">' + (n < 0 ? "−" : "") + "₪" + NF.format(Math.abs(Math.round(n * 100) / 100)) + "</span>"; }
+function moneyT(n) { n = +n || 0; return (n < 0 ? "-" : "") + "₪" + NF.format(Math.abs(Math.round(n * 100) / 100)); }
+function num(v) { if (v === "" || v == null) return null; var n = parseFloat(String(v).replace(/[,₪\s]/g, "")); return isNaN(n) ? null : n; }
+function nameOf(p) { return p === "a" ? (S.settings.nameA || "בן/בת זוג א׳") : p === "b" ? (S.settings.nameB || "בן/בת זוג ב׳") : "משותף"; }
+function payerChip(p) { return '<span class="chip ' + p + '">' + esc(nameOf(p)) + "</span>"; }
+function sum(arr, f) { return arr.reduce(function (s, x) { return s + (+f(x) || 0); }, 0); }
+
+var toastTimer = null;
+function toast(msg) {
+  $("#toast-root").innerHTML = '<div class="toast" role="status">' + esc(msg) + "</div>";
+  clearTimeout(toastTimer); toastTimer = setTimeout(function () { $("#toast-root").innerHTML = ""; }, 3400);
+}
+
+var IC = {
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+  box: '<path d="M3 8l9-5 9 5-9 5-9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/>',
+  bill: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 8h6M9 12h6"/>',
+  list: '<path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
+  chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  prev: '<path d="M9 6l6 6-6 6"/>',
+  next: '<path d="M15 6l-6 6 6 6"/>',
+  wallet: '<path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/><path d="M3 7l12-4v4"/><circle cx="16" cy="13.5" r="1.3"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>'
+};
+function svg(name) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + IC[name] + "</svg>"; }
+
+/* ================= domain calculations ================= */
+function liveItems() { return S.items.filter(function (i) { return !i.removed; }); }
+function itemSpent(i) { return !i.removed && i.actual != null && i.status !== "returned" ? +i.actual : 0; }
+function moveTotals() {
+  var live = liveItems();
+  return {
+    planned: sum(live, function (i) { return i.actual != null && i.status !== "returned" ? i.actual : i.planned; }),
+    spent: sum(S.items, itemSpent) + sum(S.expenses.filter(function (e) { return e.cat === MOVE_CAT; }), function (e) { return e.amount; }),
+    budget: +S.settings.moveBudget || 0,
+    open: live.filter(function (i) { return i.actual == null && i.status !== "got"; }).length,
+    done: live.filter(function (i) { return i.actual != null || i.status === "got"; }).length
+  };
+}
+/* every money movement as one flat list: expenses + move purchases */
+function allSpending() {
+  var out = S.expenses.map(function (e) { return { date: e.date, amount: +e.amount || 0, cat: e.cat, payer: e.payer, method: e.method, inst: e.inst || 1, note: e.note || "", src: "הוצאה", id: e.id }; });
+  S.items.forEach(function (i) {
+    var a = itemSpent(i); if (!a) return;
+    out.push({ date: i.date || today(), amount: a, cat: MOVE_CAT, payer: i.payer || "j", method: i.method || "", inst: i.inst || 1, note: i.name + (i.note ? " · " + i.note : ""), src: "מעבר דירה", id: i.id, item: true });
+  });
+  return out.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
+}
+function spendIn(ym) { return allSpending().filter(function (x) { return ymOf(x.date) === ym; }); }
+function balance() {
+  var all = allSpending(), pa = sum(all.filter(function (x) { return x.payer === "a"; }), function (x) { return x.amount; }),
+      pb = sum(all.filter(function (x) { return x.payer === "b"; }), function (x) { return x.amount; });
+  var diff = (pa - pb) / 2; // >0 → B owes A
+  S.settlements.forEach(function (s) { diff += s.from === "a" ? s.amount : -s.amount; });
+  return { pa: pa, pb: pb, diff: Math.round(diff * 100) / 100 };
+}
+function monthlyOfBill(b) { if (!b.active || b.amount == null) return 0; return b.freq ? b.amount / b.freq : 0; }
+function billsDueIn(ym) { return S.bills.filter(function (b) { return b.active && b.nextDue && ymOf(b.nextDue) === ym; }); }
+function avgBill(b) {
+  var paid = S.expenses.filter(function (e) { return e.billId === b.id; });
+  return paid.length ? sum(paid, function (e) { return e.amount; }) / paid.length : null;
+}
+function installmentLoad(ym) {
+  return sum(allSpending().filter(function (x) { return x.inst > 1 && x.method === "אשראי"; }), function (x) {
+    var start = ymOf(x.date), k = monthsBetween(start, ym);
+    return k >= 0 && k < x.inst ? x.amount / x.inst : 0;
+  });
+}
+function monthsBetween(a, b) { var pa = a.split("-"), pb = b.split("-"); return (+pb[0] - +pa[0]) * 12 + (+pb[1] - +pa[1]); }
+
+/* ================= routing ================= */
+var view = "home", moveTab = "items", showRemoved = false, moveFilter = "all";
+var expYm = curYm(), expQuery = "", expCat = "";
+var repYm = curYm();
+
+var TABS = [["home", "בית", "home"], ["move", "מעבר", "box"], ["bills", "חשבונות", "bill"], ["expenses", "הוצאות", "list"], ["reports", "דוחות", "chart"]];
+function renderTabs() {
+  var t = $("#tabs");
+  t.hidden = !S.setup;
+  $(".in", t).innerHTML = TABS.map(function (x) {
+    return '<button data-act="go" data-v="' + x[0] + '"' + (view === x[0] ? ' aria-current="page"' : "") + ">" + svg(x[2]) + "<span>" + x[1] + "</span></button>";
+  }).join("");
+  $("#fab").hidden = !S.setup || !(view === "home" || view === "expenses");
+}
+function render() {
+  var m = $("#main");
+  if (!S.setup) { m.innerHTML = renderWelcome(); renderTabs(); return; }
+  m.innerHTML = ({ home: renderHome, move: renderMove, bills: renderBills, expenses: renderExpenses, reports: renderReports, settings: renderSettings })[view]();
+  renderTabs();
+  if (view === "expenses") renderExpList();
+}
+function go(v) { view = v; render(); window.scrollTo(0, 0); }
+
+function topbar(title, sub) {
+  return '<header class="top"><div><h1>' + title + "</h1>" + (sub ? '<div class="sub">' + sub + "</div>" : "") + "</div>" +
+    '<button class="iconbtn" data-act="go" data-v="settings" aria-label="הגדרות">' + svg("gear") + "</button></header>";
+}
+
+/* ================= welcome ================= */
+function renderWelcome() {
+  var s = S.settings;
+  return '<div class="welcome">' +
+    '<div class="logo">' + svg("wallet") + "</div>" +
+    "<div><h1 style=\"font-size:26px\">תקציב הבית</h1><p class=\"muted\" style=\"margin:4px 0 0\">ניהול משותף של מעבר הדירה וההוצאות החודשיות. כמה פרטים ומתחילים.</p></div>" +
+    '<form class="card" id="welcome-form">' +
+    '<div class="grid2"><label class="field"><span>השם שלי</span><input type="text" name="nameA" value="' + esc(s.nameA) + '" required></label>' +
+    '<label class="field"><span>בן/בת הזוג</span><input type="text" name="nameB" value="' + esc(s.nameB) + '" required></label></div>' +
+    '<label class="field"><span>תאריך המעבר</span><input type="date" name="moveDate" value="' + esc(s.moveDate) + '"></label>' +
+    '<label class="field"><span>תקציב כולל למעבר</span><div class="money"><input type="number" inputmode="decimal" name="moveBudget" value="' + (s.moveBudget || "") + '"></div><span class="hint">ריהוט, מוצרי חשמל, הובלה וכל העלויות החד־פעמיות.</span></label>' +
+    '<div class="grid2"><label class="field"><span>הכנסה חודשית נטו – שלי</span><div class="money"><input type="number" inputmode="decimal" name="incomeA" value="' + (s.incomeA || "") + '"></div></label>' +
+    '<label class="field"><span>הכנסה – בן/בת הזוג</span><div class="money"><input type="number" inputmode="decimal" name="incomeB" value="' + (s.incomeB || "") + '"></div></label></div>' +
+    '<p class="hint" style="margin:0">ההוצאות מתחלקות 50/50. יצרנו לכם רשימת קניות למעבר ורשימת חשבונות קבועים – אפשר להוסיף, לערוך ולהסיר הכול.</p>' +
+    '<button class="btn primary wide" type="submit">יאללה, מתחילים</button></form></div>';
+}
+
+/* ================= home ================= */
+function renderHome() {
+  var s = S.settings, ym = curYm(), mt = moveTotals(), spent = sum(spendIn(ym).filter(function (x) { return x.cat !== MOVE_CAT; }), function (x) { return x.amount; });
+  var income = (+s.incomeA || 0) + (+s.incomeB || 0);
+  var dueBills = billsDueIn(ym), unpaid = sum(dueBills, function (b) { return b.amount || 0; });
+  var free = income - spent - unpaid;
+  var h = topbar("שלום " + esc(s.nameA || "") + (s.nameB ? " ו" + esc(s.nameB) : ""), monthTitle(ym));
+  h += alertsHtml();
+  h += '<section class="hero"><div><div class="k">נשאר לבזבז החודש</div><div class="big">' + money(free) + "</div></div>" +
+    '<div class="cols"><div><span>הכנסות</span><b>' + money(income) + "</b></div><div><span>הוצאנו</span><b>" + money(spent) + "</b></div><div><span>חשבונות צפויים</span><b>" + money(unpaid) + '</b></div></div><div class="k">בלי קניות המעבר – הן נספרות בתקציב המעבר</div></section>';
+
+  // move
+  var pct = mt.budget ? Math.min(100, mt.spent / mt.budget * 100) : 0, cls = pct >= 100 ? "bad" : pct >= 80 ? "warn" : "";
+  var dl = s.moveDate ? daysUntil(s.moveDate) : null;
+  h += '<section class="card"><div class="row spread"><h2>מעבר הדירה</h2>' +
+    (dl != null ? '<span class="chip ' + (dl >= 0 ? "a" : "done") + '">' + (dl > 0 ? "עוד " + dl + " ימים" : dl === 0 ? "היום!" : "עברנו 🎉") + "</span>" : "") + "</div>" +
+    '<div class="row spread small"><span>שולם ' + money(mt.spent) + " מתוך " + money(mt.budget) + '</span><span class="muted">' + Math.round(pct) + "%</span></div>" +
+    '<div class="bar ' + cls + '"><i style="width:' + pct + '%"></i></div>' +
+    '<div class="stats"><div class="stat"><div class="v">' + money(mt.planned) + '</div><div class="k">צפי כולל</div></div>' +
+    '<div class="stat"><div class="v">' + money(mt.budget - mt.planned) + '</div><div class="k">מרווח מהתקציב</div></div>' +
+    '<div class="stat"><div class="v num">' + mt.open + '</div><div class="k">פריטים פתוחים</div></div></div>' +
+    '<button class="btn soft" data-act="go" data-v="move">לרשימת הקניות</button></section>';
+
+  // upcoming bills
+  var up = S.bills.filter(function (b) { return b.active && b.nextDue && daysUntil(b.nextDue) <= 14; })
+    .sort(function (a, b) { return a.nextDue < b.nextDue ? -1 : 1; });
+  h += '<section class="card"><div class="row spread"><h2>חשבונות קרובים</h2><button class="btn link" data-act="go" data-v="bills">הכול</button></div>';
+  h += up.length ? '<div class="list">' + up.map(billRow).join("") + "</div>" :
+    '<div class="empty">אין חשבונות ב־14 הימים הקרובים.' + (S.bills.some(function (b) { return b.active && !b.nextDue; }) ? "<br>כדאי להגדיר תאריכי חיוב בלשונית חשבונות." : "") + "</div>";
+  h += "</section>";
+
+  // balance
+  h += balanceCard();
+
+  // recent
+  var rec = allSpending().slice(0, 5);
+  h += '<section class="card"><div class="row spread"><h2>הוצאות אחרונות</h2><button class="btn link" data-act="go" data-v="expenses">הכול</button></div>' +
+    (rec.length ? '<div class="list">' + rec.map(spendRow).join("") + "</div>" : '<div class="empty">עוד לא נרשמו הוצאות. לחצו על + כדי להוסיף.</div>') + "</section>";
+  return h;
+}
+function balanceCard() {
+  var b = balance(), txt;
+  if (Math.abs(b.diff) < 1) txt = "אתם מאוזנים 👌";
+  else txt = esc(b.diff > 0 ? nameOf("b") : nameOf("a")) + " צריך/ה להעביר ל" + esc(b.diff > 0 ? nameOf("a") : nameOf("b")) + " " + money(Math.abs(b.diff));
+  return '<section class="card"><div class="row spread"><h2>מי חייב למי</h2><span class="chip">חלוקה 50/50</span></div>' +
+    '<div style="font-size:17px;font-weight:700">' + txt + "</div>" +
+    '<div class="row small muted"><span>' + esc(nameOf("a")) + " שילם/ה מכיסו/ה " + money(b.pa) + "</span><span>·</span><span>" + esc(nameOf("b")) + " " + money(b.pb) + "</span></div>" +
+    (Math.abs(b.diff) >= 1 ? '<button class="btn soft" data-act="settle">רשמנו העברה – סגירת חשבון</button>' : "") +
+    '<p class="hint" style="margin:0">הוצאות מהחשבון המשותף לא נכנסות לחישוב.</p></section>';
+}
+function alertsHtml() {
+  var out = [];
+  S.bills.forEach(function (b) {
+    if (!b.active || !b.nextDue) return;
+    var d = daysUntil(b.nextDue);
+    if (d < 0) out.push(['bad', "<b>" + esc(b.name) + "</b> – עבר מועד החיוב (" + shortDate(b.nextDue) + ")", b.id]);
+    else if (d <= 3) out.push(['warn', "<b>" + esc(b.name) + "</b> לתשלום " + (d === 0 ? "היום" : d === 1 ? "מחר" : "בעוד " + d + " ימים"), b.id]);
+    if (b.endDate) { var e = daysUntil(b.endDate); if (e >= 0 && e <= 30) out.push(['info', "המבצע/החוזה של <b>" + esc(b.name) + "</b> מסתיים ב־" + shortDate(b.endDate)]); }
+  });
+  var mt = moveTotals();
+  if (mt.budget) {
+    if (mt.spent >= mt.budget) out.push(['bad', "חרגתם מתקציב המעבר ב־" + money(mt.spent - mt.budget)]);
+    else if (mt.spent >= mt.budget * .8) out.push(['warn', "ניצלתם " + Math.round(mt.spent / mt.budget * 100) + "% מתקציב המעבר"]);
+    else if (mt.planned > mt.budget) out.push(['info', "הצפי הכולל גבוה מהתקציב ב־" + money(mt.planned - mt.budget) + ". אפשר להסיר פריטים שלא צריך."]);
+  }
+  S.items.forEach(function (i) { if (!i.removed && i.warranty) { var d = daysUntil(i.warranty); if (d >= 0 && d <= 30) out.push(['info', "האחריות על <b>" + esc(i.name) + "</b> מסתיימת ב־" + shortDate(i.warranty)]); } });
+  var lb = S.meta.lastBackup;
+  if ((S.expenses.length || S.items.some(function (i) { return i.actual != null; })) && (!lb || daysUntil(lb) < -30))
+    out.push(['info', "הנתונים שמורים רק במכשיר הזה. כדאי לשמור גיבוי.", null, "backup"]);
+  return out.map(function (a) {
+    var btn = a[2] ? '<button class="btn sm" data-act="pay-bill" data-id="' + a[2] + '">סמן כשולם</button>' : a[3] ? '<button class="btn sm" data-act="backup">גיבוי</button>' : "";
+    return '<div class="banner ' + a[0] + '"><span>' + a[1] + "</span>" + btn + "</div>";
+  }).join("");
+}
+function spendRow(x) {
+  var p = x.date ? shortDate(x.date) : "";
+  return '<button class="li" data-act="' + (x.item ? "edit-item" : "edit-expense") + '" data-id="' + x.id + '">' +
+    '<div class="ic">' + esc(x.cat.slice(0, 1)) + "</div>" +
+    '<div class="main"><div class="t">' + esc(x.note || x.cat) + '</div><div class="s">' + esc(x.cat) + " · " + p + (x.inst > 1 ? " · " + x.inst + " תשלומים" : "") + (x.item ? " · מרשימת המעבר" : "") + "</div></div>" +
+    '<div class="amt">' + money(x.amount) + "<small>" + payerChip(x.payer) + "</small></div></button>";
+}
+
+/* ================= move ================= */
+function renderMove() {
+  var mt = moveTotals(), s = S.settings;
+  var h = topbar("מעבר דירה", s.moveDate ? "תאריך מעבר: " + shortDate(s.moveDate) : "");
+  h += '<div class="seg" role="group"><button data-act="move-tab" data-v="items" aria-pressed="' + (moveTab === "items") + '">רשימת קניות</button>' +
+    '<button data-act="move-tab" data-v="check" aria-pressed="' + (moveTab === "check") + '">צ׳קליסט</button>' +
+    '<button data-act="move-tab" data-v="deposits" aria-pressed="' + (moveTab === "deposits") + '">פיקדונות</button></div>';
+  if (moveTab === "check") return h + renderChecklist();
+  if (moveTab === "deposits") return h + renderDeposits();
+
+  var pct = mt.budget ? Math.min(100, mt.spent / mt.budget * 100) : 0;
+  h += '<section class="card"><div class="stats"><div class="stat"><div class="v">' + money(mt.budget) + '</div><div class="k">תקציב</div></div>' +
+    '<div class="stat"><div class="v">' + money(mt.planned) + '</div><div class="k">צפי</div></div>' +
+    '<div class="stat"><div class="v">' + money(mt.spent) + '</div><div class="k">שולם</div></div></div>' +
+    '<div class="bar ' + (pct >= 100 ? "bad" : pct >= 80 ? "warn" : "") + '"><i style="width:' + pct + '%"></i></div>' +
+    '<div class="seg"><button data-act="move-filter" data-v="all" aria-pressed="' + (moveFilter === "all") + '">הכול</button>' +
+    '<button data-act="move-filter" data-v="open" aria-pressed="' + (moveFilter === "open") + '">עוד לקנות</button>' +
+    '<button data-act="move-filter" data-v="done" aria-pressed="' + (moveFilter === "done") + '">נקנה</button></div></section>';
+
+  ROOMS.forEach(function (r) {
+    var items = S.items.filter(function (i) {
+      if (i.room !== r[0] || i.removed) return false;
+      var done = i.actual != null || i.status === "got";
+      return moveFilter === "all" || (moveFilter === "done" ? done : !done);
+    });
+    var all = S.items.filter(function (i) { return i.room === r[0] && !i.removed; });
+    var planned = sum(all, function (i) { return i.actual != null ? i.actual : i.planned; });
+    h += '<section class="card room"><div class="room-h"><h2>' + r[1] + '</h2><span class="small muted">' + money(planned) + "</span></div>" +
+      (items.length ? '<div class="list">' + items.map(itemRow).join("") + "</div>" : '<div class="empty" style="padding:8px">' + (all.length ? "אין פריטים בסינון הזה" : "אין פריטים") + "</div>") +
+      '<button class="btn sm soft" data-act="add-item" data-room="' + r[0] + '">' + svg("plus").replace("<svg", '<svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2"') + " פריט</button></section>";
+  });
+  var removed = S.items.filter(function (i) { return i.removed; });
+  if (removed.length) {
+    h += '<section class="card"><button class="btn link" data-act="toggle-removed" style="justify-self:start">' + (showRemoved ? "הסתרת" : "הצגת") + " פריטים שהוסרו (" + removed.length + ")</button>" +
+      (showRemoved ? '<div class="list">' + removed.map(function (i) {
+        return '<div class="li removed" style="cursor:default"><div class="main"><div class="t">' + esc(i.name) + '</div><div class="s">' + esc(ROOM[i.room] || "") + " · " + money(i.planned) + "</div></div>" +
+          '<button class="btn sm soft" data-act="restore-item" data-id="' + i.id + '">החזרה</button>' +
+          '<button class="btn sm danger" data-act="delete-item" data-id="' + i.id + '">מחיקה</button></div>';
+      }).join("") + "</div>" : "") + "</section>";
+  }
+  return h;
+}
+function itemRow(i) {
+  var done = i.actual != null || i.status === "got";
+  var st = i.status !== "todo" ? '<span class="chip ' + (i.status === "got" ? "done" : "") + '">' + STATUS[i.status] + "</span>" : "";
+  var diff = i.actual != null && i.planned ? i.actual - i.planned : null;
+  return '<button class="li" data-act="edit-item" data-id="' + i.id + '"><div class="main"><div class="t">' + esc(i.name) + "</div>" +
+    '<div class="s"><span class="chip ' + i.prio + '">' + PRIO[i.prio] + "</span> " + st + (i.note ? ' <span class="chip note">הערה</span>' : "") + "</div></div>" +
+    '<div class="amt">' + (done && i.actual != null ? money(i.actual) + '<small class="' + (diff > 0 ? "over" : "under") + '">' + (diff ? (diff > 0 ? "+" : "") + moneyT(diff).replace("-", "−") + " מהתכנון" : "לפי התכנון") + "</small>"
+      : '<span class="muted" style="font-weight:600">' + money(i.planned) + "</span><small>תקציב</small>") + "</div></button>";
+}
+function renderChecklist() {
+  var done = CHECKLIST.filter(function (c) { return S.checklist[c[0]]; }).length, m = S.meters;
+  return '<section class="card"><div class="row spread"><h2>מה צריך לסדר</h2><span class="chip done num">' + done + "/" + CHECKLIST.length + "</span></div>" +
+    '<div class="bar"><i style="width:' + (done / CHECKLIST.length * 100) + '%"></i></div>' +
+    '<div style="display:grid;gap:12px">' + CHECKLIST.map(function (c) {
+      return '<label class="check"><input type="checkbox" data-act="check" data-k="' + c[0] + '"' + (S.checklist[c[0]] ? " checked" : "") + "><span>" + c[1] + "</span></label>";
+    }).join("") + "</div></section>" +
+    '<section class="card"><h2>קריאת מונים ביום הכניסה</h2><p class="hint" style="margin:0">רושמים כאן וגם מצלמים – זו ההוכחה מול בעל הדירה והחברות.</p>' +
+    '<label class="field"><span>תאריך הקריאה</span><input type="date" data-meter="date" value="' + esc(m.date) + '"></label>' +
+    '<div class="grid2"><label class="field"><span>מים</span><input type="text" inputmode="decimal" data-meter="water" value="' + esc(m.water) + '"></label>' +
+    '<label class="field"><span>חשמל</span><input type="text" inputmode="decimal" data-meter="elec" value="' + esc(m.elec) + '"></label></div>' +
+    '<label class="field"><span>גז</span><input type="text" inputmode="decimal" data-meter="gas" value="' + esc(m.gas) + '"></label></section>';
+}
+function renderDeposits() {
+  var tot = sum(S.deposits.filter(function (d) { return d.status !== "returned"; }), function (d) { return d.amount; });
+  return '<section class="card"><div class="row spread"><h2>פיקדונות וערבויות</h2><span class="small">' + money(tot) + ' בהמתנה</span></div>' +
+    '<p class="hint" style="margin:0">כסף שחוזר בסוף החוזה – לא נספר כהוצאה ולא נכנס לתקציב.</p>' +
+    (S.deposits.length ? '<div class="list">' + S.deposits.map(function (d) {
+      return '<button class="li" data-act="edit-deposit" data-id="' + d.id + '"><div class="main"><div class="t">' + esc(d.name) + '</div><div class="s">' +
+        (d.status === "returned" ? '<span class="chip done">הוחזר</span>' : d.returnDate ? "החזרה צפויה: " + shortDate(d.returnDate) : "") + (d.note ? " · " + esc(d.note) : "") + "</div></div>" +
+        '<div class="amt">' + money(d.amount) + "</div></button>";
+    }).join("") + "</div>" : '<div class="empty">אין פיקדונות. למשל: פיקדון לבעל הדירה, ערבות בנקאית, שטר חוב.</div>') +
+    '<button class="btn soft" data-act="add-deposit">הוספת פיקדון</button></section>';
+}
+
+/* ================= bills ================= */
+function billRow(b) {
+  var d = b.nextDue ? daysUntil(b.nextDue) : null;
+  var when = !b.active ? '<span class="chip">לא רלוונטי</span>' : b.nextDue ? (d < 0 ? '<span class="chip now">באיחור</span> ' : "") + "חיוב הבא " + shortDate(b.nextDue) : '<span class="chip month">להגדיר תאריך</span>';
+  return '<div class="li" role="button" tabindex="0" data-act="edit-bill" data-id="' + b.id + '"' + (!b.active ? ' style="opacity:.6"' : "") + '><div class="ic">' + esc(b.name.slice(0, 1)) + "</div>" +
+    '<div class="main"><div class="t">' + esc(b.name) + '</div><div class="s">' + FREQ[b.freq] + " · " + when + "</div></div>" +
+    '<div class="amt">' + (b.amount != null ? money(b.amount) : '<span class="muted small">אין סכום</span>') +
+    (b.active ? '<small><span class="btn sm soft" role="button" data-act="pay-bill" data-id="' + b.id + '">שולם</span></small>' : "") + "</div></div>";
+}
+function renderBills() {
+  var act = S.bills.filter(function (b) { return b.active; });
+  var monthly = sum(act, monthlyOfBill), rent = sum(act.filter(function (b) { return b.cat === "שכר דירה"; }), monthlyOfBill);
+  var h = topbar("הוצאות קבועות", "שכר דירה וחשבונות");
+  h += '<section class="card"><div class="stats"><div class="stat"><div class="v">' + money(monthly) + '</div><div class="k">ממוצע לחודש</div></div>' +
+    '<div class="stat"><div class="v">' + money(rent) + '</div><div class="k">מתוכו שכר דירה</div></div>' +
+    '<div class="stat"><div class="v num">' + act.length + '</div><div class="k">חשבונות פעילים</div></div></div>' +
+    '<p class="hint" style="margin:0">חשבון דו־חודשי נספר כחצי בממוצע החודשי. לחיצה על חשבון – עריכה; "שולם" – רישום התשלום וקידום החיוב הבא.</p></section>';
+  var sorted = S.bills.slice().sort(function (a, b) {
+    if (a.active !== b.active) return a.active ? -1 : 1;
+    return (a.nextDue || "9") < (b.nextDue || "9") ? -1 : 1;
+  });
+  h += '<section class="card"><div class="list">' + sorted.map(billRow).join("") + "</div>" +
+    '<button class="btn soft" data-act="add-bill">הוספת חשבון קבוע</button></section>';
+  return h;
+}
+
+/* ================= expenses ================= */
+function renderExpenses() {
+  var cats = S.settings.cats;
+  return topbar("הוצאות", "") +
+    '<div class="monthnav"><button class="iconbtn" data-act="exp-month" data-d="-1" aria-label="חודש קודם">' + svg("prev") + "</button>" +
+    "<h2>" + monthTitle(expYm) + '</h2><button class="iconbtn" data-act="exp-month" data-d="1" aria-label="חודש הבא">' + svg("next") + "</button></div>" +
+    '<div class="grid2"><div class="search">' + svg("search") + '<input type="search" id="exp-q" placeholder="חיפוש" value="' + esc(expQuery) + '"></div>' +
+    '<select id="exp-cat"><option value="">כל הקטגוריות</option>' + cats.map(function (c) { return "<option" + (c === expCat ? " selected" : "") + ">" + esc(c) + "</option>"; }).join("") + "</select></div>" +
+    '<div id="exp-list" style="display:grid;gap:14px"></div>';
+}
+function renderExpList() {
+  var q = expQuery.trim().toLowerCase();
+  var list = (q ? allSpending() : spendIn(expYm)).filter(function (x) {
+    if (expCat && x.cat !== expCat) return false;
+    if (!q) return true;
+    return (x.note + " " + x.cat + " " + x.amount + " " + nameOf(x.payer)).toLowerCase().indexOf(q) >= 0;
+  });
+  var tot = sum(list, function (x) { return x.amount; });
+  var by = { a: 0, b: 0, j: 0 }; list.forEach(function (x) { by[x.payer] = (by[x.payer] || 0) + x.amount; });
+  var h = '<section class="card"><div class="row spread"><span class="label">' + (q ? "תוצאות חיפוש בכל החודשים" : "סה״כ בחודש") + '</span><span style="font-size:22px;font-weight:800">' + money(tot) + "</span></div>" +
+    '<div class="row small">' + payerChip("a") + money(by.a) + payerChip("b") + money(by.b) + payerChip("j") + money(by.j) + "</div></section>";
+  h += '<section class="card">' + (list.length ? '<div class="list">' + list.map(spendRow).join("") + "</div>" : '<div class="empty">' + (q || expCat ? "לא נמצאו הוצאות." : "אין הוצאות בחודש הזה.") + "</div>") + "</section>";
+  $("#exp-list").innerHTML = h;
+}
+
+/* ================= reports ================= */
+function renderReports() {
+  var list = spendIn(repYm), tot = sum(list, function (x) { return x.amount; });
+  var byCat = {}; list.forEach(function (x) { byCat[x.cat] = (byCat[x.cat] || 0) + x.amount; });
+  var cats = Object.keys(byCat).sort(function (a, b) { return byCat[b] - byCat[a]; });
+  var max = cats.length ? byCat[cats[0]] : 1;
+  var h = topbar("דוחות", "");
+  h += '<div class="monthnav"><button class="iconbtn" data-act="rep-month" data-d="-1" aria-label="חודש קודם">' + svg("prev") + "</button>" +
+    "<h2>" + monthTitle(repYm) + '</h2><button class="iconbtn" data-act="rep-month" data-d="1" aria-label="חודש הבא">' + svg("next") + "</button></div>";
+  h += '<section class="card"><div class="row spread"><h2>לפי קטגוריה</h2><b>' + money(tot) + "</b></div>" +
+    (cats.length ? '<div class="hbars">' + cats.map(function (c) {
+      return '<div class="hb"><div class="row spread"><span>' + esc(c) + "</span><span>" + money(byCat[c]) + ' <span class="muted small num">' + Math.round(byCat[c] / tot * 100) + '%</span></span></div><div class="bar"><i style="width:' + (byCat[c] / max * 100) + '%"></i></div></div>';
+    }).join("") + "</div>" : '<div class="empty">אין הוצאות בחודש הזה.</div>') + "</section>";
+
+  // 6-month trend
+  var months = []; for (var k = 5; k >= 0; k--) months.push(ymAdd(repYm, -k));
+  var vals = months.map(function (m) { return sum(spendIn(m), function (x) { return x.amount; }); });
+  var vmax = Math.max.apply(null, vals.concat([1]));
+  h += '<section class="card"><h2>מגמה – 6 חודשים</h2><div class="vbars">' + months.map(function (m, i) {
+    return '<div class="vb' + (m === repYm ? " cur" : "") + '"><span class="v num">' + (vals[i] ? NF.format(Math.round(vals[i] / 100) / 10) + "K" : "") + "</span>" +
+      '<i style="height:' + Math.max(2, vals[i] / vmax * 100) + '%"></i><span class="m">' + MONTHS_S[+m.slice(5) - 1] + "</span></div>";
+  }).join("") + "</div></section>";
+
+  // move by room
+  var mt = moveTotals();
+  h += '<section class="card"><h2>מעבר דירה – תכנון מול בפועל</h2><table class="t"><thead><tr><th>חדר</th><th class="n">תקציב</th><th class="n">בפועל</th></tr></thead><tbody>' +
+    ROOMS.map(function (r) {
+      var its = S.items.filter(function (i) { return i.room === r[0] && !i.removed; });
+      if (!its.length) return "";
+      var pl = sum(its, function (i) { return i.planned; }), ac = sum(its, itemSpent);
+      return "<tr><td>" + r[1] + '</td><td class="n">' + money(pl) + '</td><td class="n">' + money(ac) + "</td></tr>";
+    }).join("") + '<tr><td><b>סה״כ (תקציב ' + moneyT(mt.budget) + ')</b></td><td class="n"><b>' + money(sum(liveItems(), function (i) { return i.planned; })) + '</b></td><td class="n"><b>' + money(mt.spent) + "</b></td></tr></tbody></table></section>";
+
+  // forecast
+  var fc = []; for (var j = 1; j <= 6; j++) fc.push(ymAdd(curYm(), j));
+  var fixed = sum(S.bills, monthlyOfBill);
+  h += '<section class="card"><h2>תחזית 6 חודשים קדימה</h2><table class="t"><thead><tr><th>חודש</th><th class="n">קבועות</th><th class="n">תשלומי אשראי</th><th class="n">סה״כ</th></tr></thead><tbody>' +
+    fc.map(function (m) { var il = installmentLoad(m); return "<tr><td>" + monthTitle(m) + '</td><td class="n">' + money(fixed) + '</td><td class="n">' + money(il) + '</td><td class="n"><b>' + money(fixed + il) + "</b></td></tr>"; }).join("") +
+    '</tbody></table><p class="hint" style="margin:0">קבועות = ממוצע חודשי של החשבונות הפעילים. תשלומי אשראי = רכישות שחולקו לתשלומים.</p></section>';
+
+  h += balanceCard();
+
+  // export
+  h += '<section class="card"><h2>ייצוא לאקסל</h2>' +
+    '<label class="field"><span>טווח</span><select id="x-range"><option value="month">החודש שנבחר למעלה (' + monthTitle(repYm) + ')</option><option value="range">טווח חודשים</option><option value="all" selected>הכול</option></select></label>' +
+    '<div class="grid2" id="x-rangebox" hidden><label class="field"><span>מחודש</span><input type="month" id="x-from" value="' + ymAdd(repYm, -2) + '"></label><label class="field"><span>עד חודש</span><input type="month" id="x-to" value="' + repYm + '"></label></div>' +
+    '<div style="display:grid;gap:10px"><span class="label">מה לכלול</span>' +
+    '<label class="check"><input type="checkbox" id="x-exp" checked><span>הוצאות (כולל קניות למעבר)</span></label>' +
+    '<label class="check"><input type="checkbox" id="x-move" checked><span>רשימת מעבר דירה</span></label>' +
+    '<label class="check"><input type="checkbox" id="x-bills" checked><span>חשבונות קבועים</span></label>' +
+    '<label class="check"><input type="checkbox" id="x-sum" checked><span>סיכום ואיזון</span></label></div>' +
+    '<div class="btns"><button class="btn primary" data-act="export-xlsx">הורדת קובץ אקסל</button>' +
+    (canShareFiles() ? '<button class="btn soft" data-act="share-xlsx">שליחה (וואטסאפ / מייל)</button>' : "") + "</div>" +
+    '<button class="btn link" data-act="export-csv" style="justify-self:start">או ייצוא הוצאות ל־CSV</button></section>';
+  return h;
+}
+
+/* ================= settings ================= */
+function renderSettings() {
+  var s = S.settings;
+  return '<header class="top"><h1>הגדרות</h1><button class="btn sm" data-act="go" data-v="home">סגירה</button></header>' +
+    '<form class="card" id="settings-form"><h2>פרטים</h2>' +
+    '<div class="grid2"><label class="field"><span>שם – א׳</span><input type="text" name="nameA" value="' + esc(s.nameA) + '"></label><label class="field"><span>שם – ב׳</span><input type="text" name="nameB" value="' + esc(s.nameB) + '"></label></div>' +
+    '<div class="grid2"><label class="field"><span>הכנסה – ' + esc(nameOf("a")) + '</span><div class="money"><input type="number" inputmode="decimal" name="incomeA" value="' + (s.incomeA || "") + '"></div></label>' +
+    '<label class="field"><span>הכנסה – ' + esc(nameOf("b")) + '</span><div class="money"><input type="number" inputmode="decimal" name="incomeB" value="' + (s.incomeB || "") + '"></div></label></div>' +
+    '<div class="grid2"><label class="field"><span>תאריך מעבר</span><input type="date" name="moveDate" value="' + esc(s.moveDate) + '"></label>' +
+    '<label class="field"><span>תקציב מעבר</span><div class="money"><input type="number" inputmode="decimal" name="moveBudget" value="' + (s.moveBudget || "") + '"></div></label></div>' +
+    '<button class="btn primary" type="submit">שמירה</button></form>' +
+    '<section class="card"><h2>קטגוריות</h2><div class="row">' + s.cats.map(function (c, i) {
+      return '<span class="chip" style="font-size:13px;padding:4px 10px">' + esc(c) + (DEFAULT_CATS.indexOf(c) < 0 ? ' <button class="btn link" style="color:var(--bad)" data-act="del-cat" data-i="' + i + '" aria-label="מחיקה">×</button>' : "") + "</span>";
+    }).join("") + '</div><div class="row"><input type="text" id="new-cat" placeholder="קטגוריה חדשה" class="grow" style="flex:1"><button class="btn soft" data-act="add-cat">הוספה</button></div></section>' +
+    '<section class="card"><h2>גיבוי ושיתוף</h2><p class="hint" style="margin:0">הנתונים נשמרים בטלפון הזה בלבד. כדי לשתף את בן/בת הזוג או לעבור טלפון – שומרים גיבוי, שולחים את הקובץ, ומשחזרים בטלפון השני.' +
+    (S.meta.lastBackup ? " גיבוי אחרון: " + shortDate(S.meta.lastBackup) + "." : "") + "</p>" +
+    '<div class="btns"><button class="btn soft" data-act="backup">שמירת גיבוי</button><button class="btn" data-act="restore">שחזור מגיבוי</button></div></section>' +
+    '<section class="card"><h2>איפוס</h2><p class="hint" style="margin:0">מחיקת כל הנתונים במכשיר והתחלה מחדש.</p><button class="btn danger" data-act="reset">איפוס כל הנתונים</button></section>' +
+    (!storageOK ? '<div class="banner bad">הדפדפן לא מאפשר שמירה במכשיר. שמרו גיבוי לפני סגירה.</div>' : "");
+}
+
+/* ================= sheets ================= */
+function openSheet(html, onMount) {
+  var root = $("#sheet-root");
+  root.innerHTML = '<div class="scrim" data-act="sheet-bg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>' + html + "</div></div>";
+  document.body.classList.add("locked");
+  var first = $(".sheet input:not([type=checkbox]), .sheet select", root);
+  if (onMount) onMount($(".sheet", root));
+  if (first && !("ontouchstart" in window)) setTimeout(function () { first.focus(); }, 30);
+}
+function closeSheet() { $("#sheet-root").innerHTML = ""; document.body.classList.remove("locked"); }
+function confirmSheet(title, text, buttons) {
+  openSheet("<h3>" + title + "</h3>" + (text ? '<p style="margin:0">' + text + "</p>" : "") + '<div style="display:grid;gap:8px">' +
+    buttons.map(function (b, i) { return '<button class="btn ' + (b.cls || "") + ' wide" data-cb="' + i + '">' + b.label + "</button>"; }).join("") +
+    '<button class="btn wide" data-act="close">ביטול</button></div>', function (el) {
+    $$("[data-cb]", el).forEach(function (btn) { btn.onclick = function () { closeSheet(); buttons[+btn.dataset.cb].fn(); }; });
+  });
+}
+function opts(list, sel) { return list.map(function (o) { var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(v) + '"' + (String(v) === String(sel) ? " selected" : "") + ">" + esc(l) + "</option>"; }).join(""); }
+function payerSel(sel) { return opts([["j", "משותף"], ["a", nameOf("a")], ["b", nameOf("b")]], sel || "j"); }
+function formData(form) { var o = {}; $$("[name]", form).forEach(function (el) { o[el.name] = el.type === "checkbox" ? el.checked : el.value; }); return o; }
+function noteField(v) { return '<label class="field"><span>הערה</span><textarea name="note" maxlength="500" placeholder="לא חובה">' + esc(v || "") + "</textarea></label>"; }
+
+function expenseSheet(id) {
+  var e = id ? S.expenses.find(function (x) { return x.id === id; }) : null, d = e || { date: today(), cat: S.settings.cats[0], payer: "j", method: "אשראי", inst: 1 };
+  openSheet("<h3>" + (e ? "עריכת הוצאה" : "הוצאה חדשה") + '</h3><form id="f" style="display:grid;gap:12px">' +
+    '<label class="field"><span>סכום</span><div class="money"><input type="number" inputmode="decimal" step="0.01" name="amount" value="' + (e ? e.amount : "") + '" required></div></label>' +
+    '<div class="grid2"><label class="field"><span>קטגוריה</span><select name="cat">' + opts(S.settings.cats, d.cat) + '</select></label>' +
+    '<label class="field"><span>תאריך</span><input type="date" name="date" value="' + esc(d.date) + '" required></label></div>' +
+    '<div class="grid2"><label class="field"><span>מי שילם</span><select name="payer">' + payerSel(d.payer) + '</select></label>' +
+    '<label class="field"><span>אמצעי תשלום</span><select name="method">' + opts(METHODS, d.method) + "</select></label></div>" +
+    '<label class="field"><span>מספר תשלומים</span><input type="number" inputmode="numeric" min="1" max="36" name="inst" value="' + (d.inst || 1) + '"></label>' +
+    noteField(d.note) +
+    '<button class="btn primary wide" type="submit">שמירה</button>' + (e ? '<button class="btn danger wide" type="button" data-act="delete-expense" data-id="' + e.id + '">מחיקת ההוצאה</button>' : "") + "</form>",
+  function (el) {
+    $("#f", el).onsubmit = function (ev) {
+      ev.preventDefault(); var f = formData(ev.target), amt = num(f.amount);
+      if (amt == null || amt <= 0) { toast("צריך להזין סכום"); return; }
+      var rec = e || { id: uid() };
+      rec.amount = amt; rec.cat = f.cat; rec.date = f.date || today(); rec.payer = f.payer; rec.method = f.method;
+      rec.inst = Math.max(1, Math.round(num(f.inst) || 1)); rec.note = f.note.trim();
+      if (!e) S.expenses.push(rec);
+      save(); closeSheet(); render(); toast(e ? "ההוצאה עודכנה" : "ההוצאה נוספה");
+    };
+  });
+}
+function itemSheet(id, room) {
+  var i = id ? S.items.find(function (x) { return x.id === id; }) : null;
+  var d = i || { room: room || "elec", prio: "month", status: "todo", payer: "j", method: "אשראי", inst: 1, planned: "" };
+  openSheet("<h3>" + (i ? esc(i.name) : "פריט חדש") + '</h3><form id="f" style="display:grid;gap:12px">' +
+    '<label class="field"><span>שם הפריט</span><input type="text" name="name" value="' + esc(d.name || "") + '" required></label>' +
+    '<div class="grid2"><label class="field"><span>חדר / קבוצה</span><select name="room">' + opts(ROOMS, d.room) + '</select></label>' +
+    '<label class="field"><span>עדיפות</span><select name="prio">' + opts([["now", PRIO.now], ["month", PRIO.month], ["later", PRIO.later]], d.prio) + "</select></label></div>" +
+    '<div class="grid2"><label class="field"><span>תקציב מתוכנן</span><div class="money"><input type="number" inputmode="decimal" name="planned" value="' + (d.planned != null ? d.planned : "") + '"></div></label>' +
+    '<label class="field"><span>מחיר בפועל</span><div class="money"><input type="number" inputmode="decimal" name="actual" value="' + (d.actual != null ? d.actual : "") + '" placeholder="אחרי הקנייה"></div></label></div>' +
+    '<div class="grid2"><label class="field"><span>סטטוס</span><select name="status">' + opts(Object.keys(STATUS).map(function (k) { return [k, STATUS[k]]; }), d.status) + '</select></label>' +
+    '<label class="field"><span>תאריך קנייה</span><input type="date" name="date" value="' + esc(d.date || "") + '"></label></div>' +
+    '<details' + (i && i.actual != null ? " open" : "") + '><summary>פרטי תשלום, חנות ואחריות</summary><div style="display:grid;gap:12px;margin-top:12px">' +
+    '<div class="grid2"><label class="field"><span>מי שילם</span><select name="payer">' + payerSel(d.payer) + '</select></label>' +
+    '<label class="field"><span>אמצעי תשלום</span><select name="method">' + opts(METHODS, d.method) + "</select></label></div>" +
+    '<div class="grid2"><label class="field"><span>תשלומים</span><input type="number" inputmode="numeric" min="1" max="36" name="inst" value="' + (d.inst || 1) + '"></label>' +
+    '<label class="field"><span>אחריות עד</span><input type="date" name="warranty" value="' + esc(d.warranty || "") + '"></label></div>' +
+    '<label class="field"><span>חנות / קישור</span><input type="text" name="store" value="' + esc(d.store || "") + '"></label></div></details>' +
+    noteField(d.note) +
+    '<button class="btn primary wide" type="submit">שמירה</button>' +
+    (i ? '<div class="btns"><button class="btn" type="button" data-act="remove-item" data-id="' + i.id + '">לא צריך</button><button class="btn danger" type="button" data-act="delete-item" data-id="' + i.id + '">מחיקה לצמיתות</button></div>' : "") + "</form>",
+  function (el) {
+    $("#f", el).onsubmit = function (ev) {
+      ev.preventDefault(); var f = formData(ev.target);
+      if (!f.name.trim()) { toast("צריך שם לפריט"); return; }
+      var rec = i || { id: uid(), removed: false };
+      rec.name = f.name.trim(); rec.room = f.room; rec.prio = f.prio; rec.planned = num(f.planned) || 0;
+      rec.actual = num(f.actual); rec.status = f.status; rec.payer = f.payer; rec.method = f.method;
+      rec.inst = Math.max(1, Math.round(num(f.inst) || 1)); rec.warranty = f.warranty; rec.store = f.store.trim(); rec.note = f.note.trim();
+      rec.date = f.date || (rec.actual != null ? today() : "");
+      if (rec.actual != null && rec.status === "todo") rec.status = "got";
+      if (!i) S.items.push(rec);
+      save(); closeSheet(); render(); toast(i ? "הפריט עודכן" : "הפריט נוסף");
+    };
+  });
+}
+function removeItem(id) {
+  var i = S.items.find(function (x) { return x.id === id; }); if (!i) return;
+  function doRemove() { i.removed = true; save(); render(); toast("„" + i.name + "” הוסר מהתקציב. אפשר להחזיר אותו מלמטה."); }
+  if (i.actual != null) {
+    confirmSheet("להסיר את „" + esc(i.name) + "”?", "לפריט הזה כבר נרשם תשלום של " + money(i.actual) + ". מה לעשות עם ההוצאה?", [
+      { label: "להשאיר אותה כהוצאה כללית", cls: "primary", fn: function () {
+        S.expenses.push({ id: uid(), amount: i.actual, cat: MOVE_CAT, date: i.date || today(), payer: i.payer || "j", method: i.method || "אשראי", inst: i.inst || 1, note: i.name + (i.note ? " · " + i.note : "") });
+        i.actual = null; i.date = ""; i.status = "todo"; doRemove(); } },
+      { label: "למחוק גם את ההוצאה", cls: "danger", fn: function () { i.actual = null; i.date = ""; i.status = "todo"; doRemove(); } }
+    ]);
+  } else { closeSheet(); doRemove(); }
+}
+function deleteItem(id) {
+  var i = S.items.find(function (x) { return x.id === id; }); if (!i) return;
+  confirmSheet("למחוק את „" + esc(i.name) + "” לצמיתות?", i.actual != null ? "גם התשלום שנרשם לפריט (" + money(i.actual) + ") יימחק." : "לא יהיה אפשר להחזיר אותו.", [
+    { label: "מחיקה", cls: "danger", fn: function () { S.items = S.items.filter(function (x) { return x.id !== id; }); save(); render(); toast("הפריט נמחק"); } }
+  ]);
+}
+function billSheet(id) {
+  var b = id ? S.bills.find(function (x) { return x.id === id; }) : null;
+  var d = b || { freq: 1, cat: "אחר", method: "אשראי", payer: "j", active: true };
+  var avg = b ? avgBill(b) : null;
+  openSheet("<h3>" + (b ? esc(b.name) : "חשבון קבוע חדש") + '</h3><form id="f" style="display:grid;gap:12px">' +
+    '<div class="grid2"><label class="field"><span>שם / ספק</span><input type="text" name="name" value="' + esc(d.name || "") + '" required></label>' +
+    '<label class="field"><span>קטגוריה</span><select name="cat">' + opts(S.settings.cats, d.cat) + "</select></label></div>" +
+    '<div class="grid2"><label class="field"><span>סכום משוער</span><div class="money"><input type="number" inputmode="decimal" name="amount" value="' + (d.amount != null ? d.amount : "") + '"></div></label>' +
+    '<label class="field"><span>תדירות</span><select name="freq">' + opts([1, 2, 3, 6, 12, 0].map(function (k) { return [k, FREQ[k]]; }), d.freq) + "</select></label></div>" +
+    '<div class="grid2"><label class="field"><span>חיוב הבא</span><input type="date" name="nextDue" value="' + esc(d.nextDue || "") + '"></label>' +
+    '<label class="field"><span>סוף חוזה / מבצע</span><input type="date" name="endDate" value="' + esc(d.endDate || "") + '"></label></div>' +
+    '<div class="grid2"><label class="field"><span>מי משלם</span><select name="payer">' + payerSel(d.payer) + '</select></label>' +
+    '<label class="field"><span>אמצעי תשלום</span><select name="method">' + opts(METHODS, d.method) + "</select></label></div>" +
+    noteField(d.note) +
+    '<label class="check"><input type="checkbox" name="active"' + (d.active ? " checked" : "") + "><span>רלוונטי לנו (כבוי = לא נספר)</span></label>" +
+    (avg != null ? '<p class="hint" style="margin:0">ממוצע התשלומים שנרשמו: ' + money(avg) + "</p>" : "") +
+    '<button class="btn primary wide" type="submit">שמירה</button>' +
+    (b ? '<button class="btn danger wide" type="button" data-act="delete-bill" data-id="' + b.id + '">מחיקת החשבון</button>' : "") + "</form>",
+  function (el) {
+    $("#f", el).onsubmit = function (ev) {
+      ev.preventDefault(); var f = formData(ev.target);
+      var rec = b || { id: uid() };
+      rec.name = f.name.trim() || "חשבון"; rec.cat = f.cat; rec.amount = num(f.amount); rec.freq = +f.freq;
+      rec.nextDue = f.nextDue; rec.endDate = f.endDate; rec.payer = f.payer; rec.method = f.method; rec.note = f.note.trim(); rec.active = f.active;
+      if (!b) S.bills.push(rec);
+      save(); closeSheet(); render(); toast("נשמר");
+    };
+  });
+}
+function payBillSheet(id) {
+  var b = S.bills.find(function (x) { return x.id === id; }); if (!b) return;
+  openSheet("<h3>תשלום – " + esc(b.name) + '</h3><form id="f" style="display:grid;gap:12px">' +
+    '<div class="grid2"><label class="field"><span>סכום ששולם</span><div class="money"><input type="number" inputmode="decimal" step="0.01" name="amount" value="' + (b.amount != null ? b.amount : "") + '" required></div></label>' +
+    '<label class="field"><span>תאריך</span><input type="date" name="date" value="' + today() + '"></label></div>' +
+    '<div class="grid2"><label class="field"><span>מי שילם</span><select name="payer">' + payerSel(b.payer) + '</select></label>' +
+    '<label class="field"><span>אמצעי תשלום</span><select name="method">' + opts(METHODS, b.method) + "</select></label></div>" +
+    '<label class="field"><span>הערה לחיוב הזה</span><textarea name="note" maxlength="500" placeholder="למשל: גבוה בגלל מזגן בקיץ"></textarea></label>' +
+    (b.freq ? '<p class="hint" style="margin:0">החיוב הבא יתעדכן ל־' + shortDate(addMonths(b.nextDue || today(), b.freq)) + ".</p>" : "") +
+    '<button class="btn primary wide" type="submit">רישום התשלום</button></form>',
+  function (el) {
+    $("#f", el).onsubmit = function (ev) {
+      ev.preventDefault(); var f = formData(ev.target), amt = num(f.amount);
+      if (amt == null || amt <= 0) { toast("צריך להזין סכום"); return; }
+      var avg = avgBill(b);
+      S.expenses.push({ id: uid(), amount: amt, cat: b.cat, date: f.date || today(), payer: f.payer, method: f.method, inst: 1, note: b.name + (f.note.trim() ? " · " + f.note.trim() : ""), billId: b.id });
+      if (b.amount == null) b.amount = amt;
+      if (b.freq) b.nextDue = addMonths(b.nextDue || f.date || today(), b.freq);
+      save(); closeSheet(); render();
+      if (avg && amt > avg * 1.2) toast("שימו לב: החשבון גבוה ב־" + Math.round((amt / avg - 1) * 100) + "% מהממוצע");
+      else toast("התשלום נרשם");
+    };
+  });
+}
+function depositSheet(id) {
+  var dp = id ? S.deposits.find(function (x) { return x.id === id; }) : null, d = dp || { status: "held" };
+  openSheet("<h3>" + (dp ? "עריכת פיקדון" : "פיקדון חדש") + '</h3><form id="f" style="display:grid;gap:12px">' +
+    '<label class="field"><span>תיאור</span><input type="text" name="name" value="' + esc(d.name || "") + '" placeholder="פיקדון לבעל הדירה" required></label>' +
+    '<div class="grid2"><label class="field"><span>סכום</span><div class="money"><input type="number" inputmode="decimal" name="amount" value="' + (d.amount != null ? d.amount : "") + '"></div></label>' +
+    '<label class="field"><span>החזרה צפויה</span><input type="date" name="returnDate" value="' + esc(d.returnDate || "") + '"></label></div>' +
+    '<label class="check"><input type="checkbox" name="returned"' + (d.status === "returned" ? " checked" : "") + "><span>הכסף הוחזר</span></label>" +
+    noteField(d.note) + '<button class="btn primary wide" type="submit">שמירה</button>' +
+    (dp ? '<button class="btn danger wide" type="button" data-act="delete-deposit" data-id="' + dp.id + '">מחיקה</button>' : "") + "</form>",
+  function (el) {
+    $("#f", el).onsubmit = function (ev) {
+      ev.preventDefault(); var f = formData(ev.target), rec = dp || { id: uid() };
+      rec.name = f.name.trim(); rec.amount = num(f.amount) || 0; rec.returnDate = f.returnDate; rec.status = f.returned ? "returned" : "held"; rec.note = f.note.trim();
+      if (!dp) S.deposits.push(rec);
+      save(); closeSheet(); render();
+    };
+  });
+}
+function settleSheet() {
+  var b = balance(), from = b.diff > 0 ? "b" : "a", to = from === "a" ? "b" : "a";
+  openSheet('<h3>סגירת חשבון</h3><form id="f" style="display:grid;gap:12px"><p style="margin:0">' + esc(nameOf(from)) + " מעביר/ה ל" + esc(nameOf(to)) + ":</p>" +
+    '<div class="money"><input type="number" inputmode="decimal" name="amount" value="' + Math.abs(b.diff) + '"></div>' +
+    '<button class="btn primary wide" type="submit">רשמנו את ההעברה</button></form>', function (el) {
+    $("#f", el).onsubmit = function (ev) {
+      ev.preventDefault(); var amt = num(formData(ev.target).amount); if (!amt) return;
+      S.settlements.push({ id: uid(), from: from, to: to, amount: amt, date: today() }); save(); closeSheet(); render(); toast("ההעברה נרשמה");
+    };
+  });
+}
+
+/* ================= files ================= */
+var inViewer = !!(window.claude && typeof window.claude.use === "function");
+var dlPromise = null;
+function offerFile(filename, blob) {
+  var p = inViewer ? (dlPromise = dlPromise || window.claude.use("downloads").catch(function () { return null; })) : Promise.resolve(null);
+  return p.then(function (dl) {
+    if (dl) return dl.save({ filename: filename, data: blob }).then(function () { return "saved"; }, function () { return "declined"; });
+    var url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000); return "saved";
+  });
+}
+var XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+function canShareFiles() {
+  if (inViewer) return false;
+  try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File([new Uint8Array([80, 75, 3, 4])], "t.xlsx", { type: XLSX_MIME })] })); }
+  catch (e) { return false; }
+}
+
+/* ---- minimal XLSX writer (stored zip, no libraries) ---- */
+var CRC = (function () { var t = [], c; for (var n = 0; n < 256; n++) { c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { var c = 0xFFFFFFFF; for (var i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipStore(files) {
+  var enc = new TextEncoder(), parts = [], central = [], offset = 0, now = new Date();
+  var dtime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1), ddate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  files.forEach(function (f) {
+    var name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+    var lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(10, dtime, true); lh.setUint16(12, ddate, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true);
+    parts.push(new Uint8Array(lh.buffer), name, data);
+    var ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(12, dtime, true); ch.setUint16(14, ddate, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    offset += 30 + name.length + data.length;
+  });
+  var cd = central.reduce(function (s, p) { return s + p.length; }, 0), eo = new DataView(new ArrayBuffer(22));
+  eo.setUint32(0, 0x06054b50, true); eo.setUint16(8, files.length, true); eo.setUint16(10, files.length, true); eo.setUint32(12, cd, true); eo.setUint32(16, offset, true);
+  return new Blob(parts.concat(central, [new Uint8Array(eo.buffer)]), { type: XLSX_MIME });
+}
+function xe(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ""); }
+function col(i) { var s = ""; i++; while (i > 0) { var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; }
+function serial(iso) { var p = iso.split("-"); return Date.UTC(+p[0], +p[1] - 1, +p[2]) / 864e5 + 25569; }
+/* styles: 0 normal, 1 header, 2 date, 3 money, 4 title, 5 sum label, 6 sum money, 7 muted, 8 int, 9 wrap text */
+var ST = { txt: 0, head: 1, date: 2, money: 3, title: 4, sumL: 5, sumM: 6, muted: 7, int: 8, wrap: 9, pct: 10 };
+function buildWorkbook(sheets) {
+  var xfs = [
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>',
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" readingOrder="2" wrapText="1"/></xf>',
+    '<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
+    '<xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>',
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>',
+    '<xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>',
+    '<xf numFmtId="165" fontId="3" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>',
+    '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2"/></xf>',
+    '<xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>',
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="center" readingOrder="2" wrapText="1"/></xf>',
+    '<xf numFmtId="9" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'
+  ];
+  var styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="&quot;₪&quot;#,##0.00;[Red]-&quot;₪&quot;#,##0.00"/></numFmts>' +
+    '<fonts count="5"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><b/><sz val="15"/><color rgb="FF0B2A3C"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font><font><sz val="10"/><color rgb="FF5A7385"/><name val="Arial"/></font></fonts>' +
+    '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF0284C7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE0F2FE"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+    '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD5E5EF"/></left><right style="thin"><color rgb="FFD5E5EF"/></right><top style="thin"><color rgb="FFD5E5EF"/></top><bottom style="thin"><color rgb="FFD5E5EF"/></bottom><diagonal/></border></borders>' +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="' + xfs.length + '">' + xfs.join("") + "</cellXfs>" +
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  var files = [], ct = [], rels = [], sheetTags = [], defined = [];
+  sheets.forEach(function (sh, si) {
+    var n = si + 1, rowsXml = [], maxC = 0;
+    sh.rows.forEach(function (r, ri) {
+      if (!r) return;
+      var R = ri + 1, cells = r.map(function (c, ci) {
+        if (c == null) return "";
+        maxC = Math.max(maxC, ci + 1);
+        var ref = col(ci) + R, s = c.s || 0, v = c.v;
+        if (c.f) return '<c r="' + ref + '" s="' + s + '"><f>' + xe(c.f) + "</f>" + (typeof v === "number" ? "<v>" + v + "</v>" : "") + "</c>";
+        if (v == null || v === "") return '<c r="' + ref + '" s="' + s + '"/>';
+        if (typeof v === "number") return '<c r="' + ref + '" s="' + s + '"><v>' + v + "</v></c>";
+        return '<c r="' + ref + '" s="' + s + '" t="inlineStr"><is><t xml:space="preserve">' + xe(v) + "</t></is></c>";
+      }).join("");
+      rowsXml.push('<row r="' + R + '"' + (c0ht(sh, ri)) + ">" + cells + "</row>");
+    });
+    var last = sh.rows.length;
+    var x = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
+      '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:' + col(Math.max(0, maxC - 1)) + Math.max(1, last) + '"/>' +
+      '<sheetViews><sheetView rightToLeft="1" workbookViewId="0"' + (si === 0 ? ' tabSelected="1"' : "") + ">" +
+      (sh.freeze ? '<pane ySplit="' + sh.freeze + '" topLeftCell="A' + (sh.freeze + 1) + '" activePane="bottomLeft" state="frozen"/>' : "") + "</sheetView></sheetViews>" +
+      '<sheetFormatPr defaultRowHeight="17"/><cols>' + sh.widths.map(function (w, i) { return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>'; }).join("") + "</cols>" +
+      "<sheetData>" + rowsXml.join("") + "</sheetData>" +
+      (sh.filter ? '<autoFilter ref="' + sh.filter + '"/>' : "") +
+      (sh.merges && sh.merges.length ? '<mergeCells count="' + sh.merges.length + '">' + sh.merges.map(function (m) { return '<mergeCell ref="' + m + '"/>'; }).join("") + "</mergeCells>" : "") +
+      '<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>';
+    files.push({ name: "xl/worksheets/sheet" + n + ".xml", data: x });
+    ct.push('<Override PartName="/xl/worksheets/sheet' + n + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>');
+    rels.push('<Relationship Id="rId' + n + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + n + '.xml"/>');
+    sheetTags.push('<sheet name="' + xe(sh.name) + '" sheetId="' + n + '" r:id="rId' + n + '"/>');
+    if (sh.filter) defined.push('<definedName name="_xlnm._FilterDatabase" localSheetId="' + si + '" hidden="1">\'' + xe(sh.name) + "'!" + sh.filter.replace(/([A-Z]+)(\d+)/g, "$$$1$$$2") + "</definedName>");
+  });
+  var k = sheets.length;
+  rels.push('<Relationship Id="rId' + (k + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>');
+  files.unshift(
+    { name: "[Content_Types].xml", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + ct.join("") + "</Types>" },
+    { name: "_rels/.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+    { name: "xl/workbook.xml", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView activeTab="0"/></bookViews><sheets>' + sheetTags.join("") + "</sheets>" + (defined.length ? "<definedNames>" + defined.join("") + "</definedNames>" : "") + '<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>' },
+    { name: "xl/_rels/workbook.xml.rels", data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + rels.join("") + "</Relationships>" },
+    { name: "xl/styles.xml", data: styles }
+  );
+  return zipStore(files);
+}
+function c0ht(sh, ri) { return sh.heights && sh.heights[ri] ? ' ht="' + sh.heights[ri] + '" customHeight="1"' : ""; }
+
+function exportOptions() {
+  var r = $("#x-range").value, from = null, to = null, label = "כל התקופה";
+  if (r === "month") { from = to = repYm; label = monthTitle(repYm); }
+  else if (r === "range") { from = $("#x-from").value; to = $("#x-to").value; if (from > to) { var t = from; from = to; to = t; } label = monthTitle(from) + " – " + monthTitle(to); }
+  return { from: from, to: to, label: label, exp: $("#x-exp").checked, move: $("#x-move").checked, bills: $("#x-bills").checked, sum: $("#x-sum").checked };
+}
+function buildExport(o) {
+  var gen = "הופק: " + shortDate(today()) + "  ·  " + nameOf("a") + " ו" + nameOf("b") + "  ·  טווח: " + o.label;
+  var sheets = [];
+  var spend = allSpending().filter(function (x) { var m = ymOf(x.date); return (!o.from || m >= o.from) && (!o.to || m <= o.to); })
+    .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+  var EXP = "הוצאות";
+  if (o.exp || o.sum) {
+    var rows = [[{ v: "הוצאות", s: ST.title }], [{ v: gen, s: ST.muted }], null,
+      ["תאריך", "סכום", "קטגוריה", "מי שילם", "אמצעי תשלום", "תשלומים", "הערה", "מקור"].map(function (h) { return { v: h, s: ST.head }; })];
+    spend.forEach(function (x) {
+      rows.push([{ v: serial(x.date), s: ST.date }, { v: x.amount, s: ST.money }, { v: x.cat }, { v: nameOf(x.payer) }, { v: x.method || "" }, { v: x.inst || 1, s: ST.int }, { v: x.note, s: ST.wrap }, { v: x.src }]);
+    });
+    var lr = rows.length;
+    rows.push(null);
+    rows.push([{ v: "סה״כ", s: ST.sumL }, { f: "SUM(B5:B" + Math.max(5, lr) + ")", v: sum(spend, function (x) { return x.amount; }), s: ST.sumM }]);
+    sheets.push({ name: EXP, rows: rows, widths: [12, 13, 18, 14, 15, 9, 40, 12], freeze: 4, filter: "A4:H" + Math.max(4, lr), merges: ["A1:H1", "A2:H2"], heights: { 0: 24, 3: 22 }, hidden: !o.exp, lastRow: lr });
+  }
+  if (o.move) {
+    var mr = [[{ v: "רשימת מעבר דירה", s: ST.title }], [{ v: "תקציב מעבר: " + moneyT(S.settings.moveBudget) + "  ·  " + "הופק: " + shortDate(today()), s: ST.muted }], null,
+      ["חדר", "פריט", "עדיפות", "תקציב", "מחיר בפועל", "הפרש", "סטטוס", "מי שילם", "תאריך קנייה", "תשלומים", "אחריות עד", "חנות", "הערה"].map(function (h) { return { v: h, s: ST.head }; })];
+    var its = S.items.slice().sort(function (a, b) { return ROOMS.findIndex(function (r) { return r[0] === a.room; }) - ROOMS.findIndex(function (r) { return r[0] === b.room; }); });
+    its.forEach(function (i) {
+      var R = mr.length + 1;
+      mr.push([{ v: ROOM[i.room] || "" }, { v: i.name }, { v: PRIO[i.prio] || "" }, { v: i.planned || 0, s: ST.money },
+        { v: i.actual != null ? i.actual : "", s: ST.money },
+        { f: 'IF(E' + R + '="","",E' + R + "-D" + R + ")", v: i.actual != null ? i.actual - (i.planned || 0) : "", s: ST.money },
+        { v: i.removed ? "הוסר (לא צריך)" : STATUS[i.status] }, { v: i.actual != null ? nameOf(i.payer) : "" },
+        { v: i.date ? serial(i.date) : "", s: ST.date }, { v: i.actual != null ? (i.inst || 1) : "", s: ST.int },
+        { v: i.warranty ? serial(i.warranty) : "", s: ST.date }, { v: i.store || "" }, { v: i.note || "", s: ST.wrap }]);
+    });
+    var ml = mr.length; mr.push(null);
+    var live = S.items.filter(function (i) { return !i.removed; });
+    mr.push([{ v: "סה״כ (בלי פריטים שהוסרו)", s: ST.sumL }, { v: "", s: ST.sumL }, { v: "", s: ST.sumL },
+      { f: 'SUMIF(G5:G' + ml + ',"<>הוסר (לא צריך)",D5:D' + ml + ")", v: sum(live, function (i) { return i.planned; }), s: ST.sumM },
+      { f: 'SUMIF(G5:G' + ml + ',"<>הוסר (לא צריך)",E5:E' + ml + ")", v: sum(live, function (i) { return i.actual || 0; }), s: ST.sumM }]);
+    sheets.push({ name: "מעבר דירה", rows: mr, widths: [16, 26, 13, 12, 12, 12, 15, 12, 12, 9, 12, 18, 34], freeze: 4, filter: "A4:M" + ml, merges: ["A1:M1", "A2:M2"], heights: { 0: 24, 3: 22 } });
+  }
+  if (o.bills) {
+    var br = [[{ v: "חשבונות קבועים", s: ST.title }], [{ v: "הופק: " + shortDate(today()), s: ST.muted }], null,
+      ["שם / ספק", "קטגוריה", "סכום", "תדירות", "ממוצע לחודש", "חיוב הבא", "מי משלם", "אמצעי תשלום", "סוף חוזה / מבצע", "פעיל", "הערה"].map(function (h) { return { v: h, s: ST.head }; })];
+    S.bills.forEach(function (b) {
+      br.push([{ v: b.name }, { v: b.cat }, { v: b.amount != null ? b.amount : "", s: ST.money }, { v: FREQ[b.freq] },
+        { v: b.active && b.amount != null && b.freq ? Math.round(b.amount / b.freq * 100) / 100 : "", s: ST.money },
+        { v: b.nextDue ? serial(b.nextDue) : "", s: ST.date }, { v: nameOf(b.payer) }, { v: b.method || "" },
+        { v: b.endDate ? serial(b.endDate) : "", s: ST.date }, { v: b.active ? "כן" : "לא" }, { v: b.note || "", s: ST.wrap }]);
+    });
+    var bl = br.length; br.push(null);
+    br.push([{ v: "סה״כ ממוצע חודשי", s: ST.sumL }, { v: "", s: ST.sumL }, { v: "", s: ST.sumL }, { v: "", s: ST.sumL }, { f: "SUM(E5:E" + bl + ")", v: sum(S.bills, monthlyOfBill), s: ST.sumM }]);
+    sheets.push({ name: "חשבונות קבועים", rows: br, widths: [18, 16, 12, 12, 13, 12, 12, 14, 15, 7, 34], freeze: 4, filter: "A4:K" + bl, merges: ["A1:K1", "A2:K2"], heights: { 0: 24, 3: 22 } });
+  }
+  if (o.sum) {
+    var e0 = sheets[0] && sheets[0].name === EXP ? sheets[0] : null, last = e0 ? e0.lastRow : 4;
+    var rng = function (c) { return "'" + EXP + "'!$" + c + "$5:$" + c + "$" + Math.max(5, last); };
+    var sr = [[{ v: "סיכום", s: ST.title }], [{ v: gen, s: ST.muted }], null, [{ v: "קטגוריה", s: ST.head }, { v: "סה״כ", s: ST.head }, { v: "אחוז", s: ST.head }]];
+    var byCat = {}; spend.forEach(function (x) { byCat[x.cat] = (byCat[x.cat] || 0) + x.amount; });
+    var tot = sum(spend, function (x) { return x.amount; });
+    var cats = S.settings.cats.filter(function (c) { return byCat[c]; });
+    Object.keys(byCat).forEach(function (c) { if (cats.indexOf(c) < 0) cats.push(c); });
+    var first = sr.length + 1;
+    cats.forEach(function (c) {
+      var R = sr.length + 1;
+      sr.push([{ v: c }, { f: "SUMIF(" + rng("C") + ',A' + R + "," + rng("B") + ")", v: byCat[c], s: ST.money }, { f: "IF($B$" + (first + cats.length) + "=0,\"\",B" + R + "/$B$" + (first + cats.length) + ")", v: tot ? byCat[c] / tot : "", s: ST.pct }]);
+    });
+    var TR = sr.length + 1;
+    sr.push([{ v: "סה״כ הוצאות", s: ST.sumL }, { f: "SUM(B" + first + ":B" + (TR - 1) + ")", v: tot, s: ST.sumM }, { v: "", s: ST.sumL }]);
+    sr.push(null);
+    var mt = moveTotals();
+    sr.push([{ v: "מעבר דירה", s: ST.head }, { v: "סכום", s: ST.head }]);
+    sr.push([{ v: "תקציב מעבר" }, { v: mt.budget, s: ST.money }]);
+    sr.push([{ v: "צפי כולל" }, { v: mt.planned, s: ST.money }]);
+    sr.push([{ v: "שולם עד כה" }, { v: mt.spent, s: ST.money }]);
+    sr.push([{ v: "נשאר בתקציב", s: ST.sumL }, { f: "B" + (sr.length - 2) + "-B" + sr.length, v: mt.budget - mt.spent, s: ST.sumM }]);
+    sr.push(null);
+    var b = balance();
+    sr.push([{ v: "איזון בין בני הזוג (50/50, כל התקופה)", s: ST.head }, { v: "סכום", s: ST.head }]);
+    sr.push([{ v: nameOf("a") + " שילם/ה מכיסו/ה" }, { v: b.pa, s: ST.money }]);
+    sr.push([{ v: nameOf("b") + " שילם/ה מכיסו/ה" }, { v: b.pb, s: ST.money }]);
+    sr.push([{ v: Math.abs(b.diff) < 1 ? "מאוזנים" : (b.diff > 0 ? nameOf("b") + " מעביר/ה ל" + nameOf("a") : nameOf("a") + " מעביר/ה ל" + nameOf("b")), s: ST.sumL }, { v: Math.abs(b.diff), s: ST.sumM }]);
+    sheets.push({ name: "סיכום", rows: sr, widths: [38, 15, 10], freeze: 0, merges: ["A1:C1", "A2:C2"], heights: { 0: 24, 3: 22 } });
+  }
+  var out = sheets.filter(function (s) { return !s.hidden; });
+  // the summary formulas need the expenses sheet; keep it if summary is on
+  if (o.sum && !o.exp && sheets[0] && sheets[0].name === EXP) out.unshift(sheets[0]);
+  return out;
+}
+function exportName(o) { return "budget_" + (o.from ? (o.from === o.to ? o.from : o.from + "_to_" + o.to) : "all_" + today()) + ".xlsx"; }
+function makeXlsx() {
+  var o = exportOptions();
+  if (!o.exp && !o.move && !o.bills && !o.sum) { toast("צריך לבחור לפחות דבר אחד לייצוא"); return null; }
+  return { name: exportName(o), blob: buildWorkbook(buildExport(o)) };
+}
+
+function exportCsv() {
+  var rows = [["תאריך", "סכום", "קטגוריה", "מי שילם", "אמצעי תשלום", "תשלומים", "הערה", "מקור"]];
+  allSpending().forEach(function (x) { rows.push([shortDate(x.date), x.amount, x.cat, nameOf(x.payer), x.method, x.inst, x.note, x.src]); });
+  var csv = "﻿" + rows.map(function (r) { return r.map(function (v) { v = String(v == null ? "" : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(","); }).join("\r\n");
+  offerFile("expenses_" + today() + ".csv", new Blob([csv], { type: "text/csv;charset=utf-8" }));
+}
+function backup() {
+  var data = JSON.stringify(S, null, 1);
+  offerFile("budget-backup_" + today() + ".json", new Blob([data], { type: "application/json" })).then(function (st) {
+    if (st === "saved") { S.meta.lastBackup = today(); save(); render(); toast("הגיבוי נשמר"); }
+  });
+}
+
+/* ================= events ================= */
+var ACTS = {
+  go: function (el) { go(el.dataset.v); },
+  close: closeSheet,
+  "sheet-bg": function (el, ev) { if (ev.target === el) closeSheet(); },
+  "add-expense": function () { expenseSheet(null); },
+  "edit-expense": function (el) { expenseSheet(el.dataset.id); },
+  "delete-expense": function (el) {
+    var id = el.dataset.id;
+    confirmSheet("למחוק את ההוצאה?", "", [{ label: "מחיקה", cls: "danger", fn: function () { S.expenses = S.expenses.filter(function (x) { return x.id !== id; }); save(); render(); toast("ההוצאה נמחקה"); } }]);
+  },
+  "add-item": function (el) { itemSheet(null, el.dataset.room); },
+  "edit-item": function (el) { itemSheet(el.dataset.id); },
+  "remove-item": function (el) { removeItem(el.dataset.id); },
+  "delete-item": function (el) { deleteItem(el.dataset.id); },
+  "restore-item": function (el) { var i = S.items.find(function (x) { return x.id === el.dataset.id; }); if (i) { i.removed = false; save(); render(); toast("„" + i.name + "” חזר לרשימה"); } },
+  "toggle-removed": function () { showRemoved = !showRemoved; render(); },
+  "move-tab": function (el) { moveTab = el.dataset.v; render(); },
+  "move-filter": function (el) { moveFilter = el.dataset.v; render(); },
+  "add-bill": function () { billSheet(null); },
+  "edit-bill": function (el) { billSheet(el.dataset.id); },
+  "pay-bill": function (el) { payBillSheet(el.dataset.id); },
+  "delete-bill": function (el) {
+    var id = el.dataset.id;
+    confirmSheet("למחוק את החשבון?", "תשלומים שכבר נרשמו יישארו ברשימת ההוצאות. אם הוא פשוט לא רלוונטי – אפשר במקום זה לכבות אותו.", [
+      { label: "מחיקה", cls: "danger", fn: function () { S.bills = S.bills.filter(function (x) { return x.id !== id; }); save(); render(); } }]);
+  },
+  "add-deposit": function () { depositSheet(null); },
+  "edit-deposit": function (el) { depositSheet(el.dataset.id); },
+  "delete-deposit": function (el) { var id = el.dataset.id; S.deposits = S.deposits.filter(function (x) { return x.id !== id; }); save(); closeSheet(); render(); },
+  settle: settleSheet,
+  "exp-month": function (el) { expYm = ymAdd(expYm, +el.dataset.d); render(); },
+  "rep-month": function (el) { repYm = ymAdd(repYm, +el.dataset.d); render(); },
+  "export-xlsx": function () { var x = makeXlsx(); if (x) offerFile(x.name, x.blob).then(function (s) { if (s === "saved") toast("הקובץ ירד: " + x.name); }); },
+  "share-xlsx": function () {
+    var x = makeXlsx(); if (!x) return;
+    navigator.share({ files: [new File([x.blob], x.name, { type: XLSX_MIME })], title: x.name }).catch(function () {});
+  },
+  "export-csv": exportCsv,
+  backup: backup,
+  restore: function () { $("#import-file").click(); },
+  reset: function () {
+    confirmSheet("למחוק את כל הנתונים?", "כל ההוצאות, הפריטים והחשבונות יימחקו מהמכשיר. מומלץ לשמור גיבוי לפני.", [
+      { label: "שמירת גיבוי קודם", cls: "soft", fn: backup },
+      { label: "מחיקה והתחלה מחדש", cls: "danger", fn: function () { S = seed(); save(); view = "home"; render(); } }]);
+  },
+  "add-cat": function () {
+    var v = $("#new-cat").value.trim(); if (!v) return;
+    if (S.settings.cats.indexOf(v) >= 0) { toast("הקטגוריה כבר קיימת"); return; }
+    S.settings.cats.splice(S.settings.cats.length - 1, 0, v); save(); render();
+  },
+  "del-cat": function (el) { S.settings.cats.splice(+el.dataset.i, 1); save(); render(); }
+};
+document.addEventListener("click", function (ev) {
+  var el = ev.target.closest("[data-act]");
+  if (!el || el.tagName === "INPUT") return;
+  var fn = ACTS[el.dataset.act];
+  if (fn) { if (el.dataset.act !== "sheet-bg") ev.stopPropagation(); fn(el, ev); }
+});
+document.addEventListener("change", function (ev) {
+  var t = ev.target;
+  if (t.dataset.act === "check") { S.checklist[t.dataset.k] = t.checked; save(); render(); return; }
+  if (t.dataset.meter) { S.meters[t.dataset.meter] = t.value; save(); return; }
+  if (t.id === "exp-cat") { expCat = t.value; renderExpList(); return; }
+  if (t.id === "x-range") { $("#x-rangebox").hidden = t.value !== "range"; return; }
+  if (t.id === "import-file" && t.files[0]) {
+    var rd = new FileReader();
+    rd.onload = function () {
+      var data; try { data = JSON.parse(rd.result); } catch (e) { toast("הקובץ לא נקרא – זה לא קובץ גיבוי"); return; }
+      if (!data || !data.settings || !Array.isArray(data.items)) { toast("זה לא קובץ גיבוי של האפליקציה"); return; }
+      confirmSheet("לשחזר מהגיבוי?", "הנתונים הנוכחיים במכשיר יוחלפו בנתונים מהקובץ (" + (data.expenses || []).length + " הוצאות, " + data.items.length + " פריטים).", [
+        { label: "שחזור", cls: "primary", fn: function () { S = normalize(data); S.setup = true; save(); view = "home"; render(); toast("הנתונים שוחזרו"); } }]);
+    };
+    rd.readAsText(t.files[0]); t.value = "";
+  }
+});
+document.addEventListener("input", function (ev) {
+  if (ev.target.id === "exp-q") { expQuery = ev.target.value; renderExpList(); }
+});
+document.addEventListener("submit", function (ev) {
+  var f = ev.target;
+  if (f.id === "welcome-form" || f.id === "settings-form") {
+    ev.preventDefault(); var d = formData(f), s = S.settings;
+    s.nameA = d.nameA.trim(); s.nameB = d.nameB.trim(); s.moveDate = d.moveDate;
+    s.moveBudget = num(d.moveBudget) || 0; s.incomeA = num(d.incomeA) || 0; s.incomeB = num(d.incomeB) || 0;
+    if (f.id === "welcome-form") { S.setup = true; view = "home"; } else toast("נשמר");
+    save(); render();
+  }
+});
+document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && $("#sheet-root").innerHTML) closeSheet(); });
+
+render();
+if ("serviceWorker" in navigator && location.protocol === "https:" && !inViewer) {
+  window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
+}
+})();
+</script>
+</body>
+</html>
