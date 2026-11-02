@@ -197,6 +197,7 @@ table.t td.n, table.t th.n { text-align: left; }
 .empty { text-align: center; color: var(--muted); padding: 18px 8px; font-size: 14px; }
 .count { font-size: 44px; font-weight: 800; line-height: 1; }
 .welcome { min-height: 100vh; display: grid; align-content: center; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 14px; }
 .logo { width: 64px; height: 64px; border-radius: 20px; background: linear-gradient(135deg, #38BDF8, #0284C7); display: grid; place-items: center; box-shadow: 0 8px 22px rgba(2, 132, 199, .3); }
 .logo svg { width: 34px; height: 34px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .search { position: relative; }
@@ -434,8 +435,8 @@ function topbar(title, sub) {
 function renderWelcome() {
   var s = S.settings;
   return '<div class="welcome">' +
-    '<div class="logo">' + svg("wallet") + "</div>" +
-    "<div><h1 style=\"font-size:26px\">תקציב הבית</h1><p class=\"muted\" style=\"margin:4px 0 0\">ניהול משותף של מעבר הדירה וההוצאות החודשיות. כמה פרטים ומתחילים.</p></div>" +
+    '<div class="brand"><div class="logo">' + svg("wallet") + '</div><h1 style="font-size:26px">תקציב הבית</h1></div>' +
+    "<p class=\"muted\" style=\"margin:0\">ניהול משותף של מעבר הדירה וההוצאות החודשיות. כמה פרטים ומתחילים.</p>" +
     '<form class="card" id="welcome-form">' +
     '<div class="grid2"><label class="field"><span>השם שלי</span><input type="text" name="nameA" value="' + esc(s.nameA) + '" required></label>' +
     '<label class="field"><span>בן/בת הזוג</span><input type="text" name="nameB" value="' + esc(s.nameB) + '" required></label></div>' +
