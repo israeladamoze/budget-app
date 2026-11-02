@@ -63,13 +63,13 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .grow { flex: 1; min-width: 0; }
 
 /* hero */
-.hero { background: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%); color: #fff; border-radius: 22px; padding: 18px; display: grid; gap: 12px; box-shadow: 0 8px 24px rgba(2, 132, 199, .25); }
-.hero .k { font-size: 13px; opacity: .9; }
+.hero { background: linear-gradient(135deg, #BAE6FD 0%, #7DD3FC 100%); color: #0B2A3C; border-radius: 22px; padding: 18px; display: grid; gap: 12px; box-shadow: 0 8px 24px rgba(2, 132, 199, .25); }
+.hero .k { font-size: 13px; color: #164E63; }
 .hero .big { font-size: 32px; font-weight: 800; line-height: 1.1; }
 .hero .cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.hero .cols div { background: rgba(255, 255, 255, .16); border-radius: 12px; padding: 8px 10px; min-width: 0; }
+.hero .cols div { background: rgba(255, 255, 255, .5); border-radius: 12px; padding: 8px 10px; min-width: 0; }
 .hero .cols b { display: block; font-size: 16px; font-weight: 700; }
-.hero .cols span { font-size: 12px; opacity: .92; }
+.hero .cols span { font-size: 12px; color: #164E63; }
 
 /* progress */
 .bar { height: 10px; border-radius: 99px; background: var(--sunk); overflow: hidden; position: relative; }
@@ -129,7 +129,7 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .field { display: grid; gap: 5px; min-width: 0; }
 .field > span { font-size: 13px; font-weight: 600; color: var(--muted); }
 input[type="text"], input[type="number"], input[type="date"], input[type="month"], input[type="search"], select, textarea {
-  width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; min-height: 46px; }
+  width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; min-height: 46px; font-size: 16px; }
 input[type="date"], input[type="month"] { -webkit-appearance: none; appearance: none; text-align: right; display: block; }
 textarea { min-height: 70px; resize: vertical; }
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
@@ -366,7 +366,7 @@ function itemSpent(i) { return !i.removed && i.actual != null && i.status !== "r
 function moveTotals() {
   var live = liveItems();
   return {
-    planned: sum(live, function (i) { return i.actual != null && i.status !== "returned" ? i.actual : i.planned; }),
+    planned: sum(live, function (i) { return i.actual != null && i.status !== "returned" ? i.actual : i.planned; }) + sum(S.expenses.filter(function (e) { return e.cat === MOVE_CAT; }), function (e) { return e.amount; }),
     spent: sum(S.items, itemSpent) + sum(S.expenses.filter(function (e) { return e.cat === MOVE_CAT; }), function (e) { return e.amount; }),
     budget: +S.settings.moveBudget || 0,
     open: live.filter(function (i) { return i.actual == null && i.status !== "got"; }).length,
@@ -439,7 +439,16 @@ function render() {
   renderTabs();
   if (view === "expenses") renderExpList();
 }
-function go(v) { view = v; render(); window.scrollTo(0, 0); }
+function go(v, fromPop) {
+  if (!fromPop && v !== view) { try { history.pushState({ v: v }, ""); } catch (e) {} }
+  view = v; render(); window.scrollTo(0, 0);
+}
+window.addEventListener("popstate", function (ev) {
+  if (ignorePop) { ignorePop = false; return; }
+  if ($("#sheet-root").innerHTML) { closeSheet(true); return; }
+  var st = ev.state || { v: "home" };
+  if (S.setup) go(st.v || "home", true);
+});
 
 function topbar(title, sub) {
   return '<header class="top"><div><h1>' + title + "</h1>" + (sub ? '<div class="sub">' + sub + "</div>" : "") + "</div>" +
@@ -456,7 +465,7 @@ function renderWelcome() {
     '<div class="grid2"><label class="field"><span>השם שלי</span><input type="text" name="nameA" value="' + esc(s.nameA) + '" required></label>' +
     '<label class="field"><span>בן/בת הזוג</span><input type="text" name="nameB" value="' + esc(s.nameB) + '" required></label></div>' +
     '<label class="field"><span>תאריך המעבר</span><input type="date" name="moveDate" value="' + esc(s.moveDate) + '"></label>' +
-    '<label class="field"><span>תקציב כולל למעבר</span><div class="money"><input type="number" inputmode="decimal" name="moveBudget" value="' + (s.moveBudget || "") + '"></div><span class="hint">ריהוט, מוצרי חשמל, הובלה וכל העלויות החד־פעמיות.</span></label>' +
+    '<label class="field"><span>תקציב כולל למעבר</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="moveBudget" value="' + (s.moveBudget || "") + '"></div><span class="hint">ריהוט, מוצרי חשמל, הובלה וכל העלויות החד־פעמיות.</span></label>' +
     variableField(s) +
     '<p class="hint" style="margin:0">כל אחד מעביר לחשבון המשותף חצי מההוצאות הצפויות. האפליקציה תחשב כמה. יצרנו לכם רשימת קניות למעבר ורשימת חשבונות קבועים – אפשר להוסיף, לערוך ולהסיר הכול.</p>' +
     '<button class="btn primary wide" type="submit">יאללה, מתחילים</button></form></div>';
@@ -502,7 +511,7 @@ function renderHome() {
   return h;
 }
 function variableField(s) {
-  return '<label class="field"><span>תקציב חודשי להוצאות משתנות מהחשבון המשותף</span><div class="money"><input type="number" inputmode="decimal" name="variable" value="' + (s.variable || "") + '" placeholder="למשל 3000"></div><span class="hint">סופר, דלק, בילויים וכו׳. החשבונות הקבועים מחושבים לבד.</span></label>';
+  return '<label class="field"><span>תקציב חודשי להוצאות משתנות מהחשבון המשותף</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="variable" value="' + (s.variable || "") + '" placeholder="למשל 3000"></div><span class="hint">סופר, דלק, בילויים וכו׳. החשבונות הקבועים מחושבים לבד.</span></label>';
 }
 function transferCard(ym) {
   var need = needPerMonth(), half = Math.round(need.total / 2), ts = transfersIn(ym);
@@ -526,7 +535,7 @@ function transferSheet(id) {
   var d = t || { who: "a", amount: half || "", date: today() };
   openSheet("<h3>" + (t ? "עריכת העברה" : "העברה לחשבון המשותף") + '</h3><form id="f" style="display:grid;gap:12px">' +
     '<label class="field"><span>מי העביר</span><select name="who">' + opts([["a", nameOf("a")], ["b", nameOf("b")]], d.who) + "</select></label>" +
-    '<div class="grid2"><label class="field"><span>סכום</span><div class="money"><input type="number" inputmode="decimal" name="amount" value="' + d.amount + '" required></div></label>' +
+    '<div class="grid2"><label class="field"><span>סכום</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="amount" value="' + d.amount + '" required></div></label>' +
     '<label class="field"><span>תאריך</span><input type="date" name="date" value="' + esc(d.date) + '"></label></div>' +
     noteField(d.note) + '<button class="btn primary wide" type="submit">שמירה</button>' +
     (t ? '<button class="btn danger wide" type="button" data-act="delete-transfer" data-id="' + t.id + '">מחיקה</button>' : "") + "</form>",
@@ -666,7 +675,7 @@ function billRow(b) {
   return '<div class="li" role="button" tabindex="0" data-act="edit-bill" data-id="' + b.id + '"' + (!b.active ? ' style="opacity:.6"' : "") + '><div class="ic">' + esc(b.name.slice(0, 1)) + "</div>" +
     '<div class="main"><div class="t">' + esc(b.name) + '</div><div class="s">' + FREQ[b.freq] + " · " + when + "</div></div>" +
     '<div class="amt">' + (b.amount != null ? money(b.amount) : '<span class="muted small">אין סכום</span>') +
-    (b.active ? '<small><span class="btn sm soft" role="button" data-act="pay-bill" data-id="' + b.id + '">שולם</span></small>' : "") + "</div></div>";
+    (b.active ? '<small><span class="btn sm soft" role="button" tabindex="0" data-act="pay-bill" data-id="' + b.id + '">שולם</span></small>' : "") + "</div></div>";
 }
 function renderBills() {
   var act = S.bills.filter(function (b) { return b.active; });
@@ -741,7 +750,8 @@ function renderReports() {
       if (!its.length) return "";
       var pl = sum(its, function (i) { return i.planned; }), ac = sum(its, itemSpent);
       return "<tr><td>" + r[1] + '</td><td class="n">' + money(pl) + '</td><td class="n">' + money(ac) + "</td></tr>";
-    }).join("") + '<tr><td><b>סה״כ (תקציב ' + moneyT(mt.budget) + ')</b></td><td class="n"><b>' + money(sum(liveItems(), function (i) { return i.planned; })) + '</b></td><td class="n"><b>' + money(mt.spent) + "</b></td></tr></tbody></table></section>";
+    }).join("") + (function () { var g = sum(S.expenses.filter(function (e) { return e.cat === MOVE_CAT; }), function (e) { return e.amount; }); return g ? '<tr><td>הוצאות מעבר כלליות</td><td class="n">' + money(g) + '</td><td class="n">' + money(g) + "</td></tr>" : ""; })() +
+    '<tr><td><b>סה״כ (תקציב ' + moneyT(mt.budget) + ')</b></td><td class="n"><b>' + money(sum(liveItems(), function (i) { return i.planned; }) + sum(S.expenses.filter(function (e) { return e.cat === MOVE_CAT; }), function (e) { return e.amount; })) + '</b></td><td class="n"><b>' + money(mt.spent) + "</b></td></tr></tbody></table></section>";
 
   // forecast
   var fc = []; for (var j = 1; j <= 6; j++) fc.push(ymAdd(curYm(), j));
@@ -775,7 +785,7 @@ function renderSettings() {
     '<div class="grid2"><label class="field"><span>שם – א׳</span><input type="text" name="nameA" value="' + esc(s.nameA) + '"></label><label class="field"><span>שם – ב׳</span><input type="text" name="nameB" value="' + esc(s.nameB) + '"></label></div>' +
     variableField(s) +
     '<div class="grid2"><label class="field"><span>תאריך מעבר</span><input type="date" name="moveDate" value="' + esc(s.moveDate) + '"></label>' +
-    '<label class="field"><span>תקציב מעבר</span><div class="money"><input type="number" inputmode="decimal" name="moveBudget" value="' + (s.moveBudget || "") + '"></div></label></div>' +
+    '<label class="field"><span>תקציב מעבר</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="moveBudget" value="' + (s.moveBudget || "") + '"></div></label></div>' +
     '<button class="btn primary" type="submit">שמירה</button></form>' +
     '<section class="card"><h2>קטגוריות</h2><div class="row">' + s.cats.map(function (c, i) {
       return '<span class="chip" style="font-size:13px;padding:4px 10px">' + esc(c) + (DEFAULT_CATS.indexOf(c) < 0 ? ' <button class="btn link" style="color:var(--bad)" data-act="del-cat" data-i="' + i + '" aria-label="מחיקה">×</button>' : "") + "</span>";
@@ -788,15 +798,21 @@ function renderSettings() {
 }
 
 /* ================= sheets ================= */
+var sheetPushed = false, ignorePop = false;
 function openSheet(html, onMount) {
   var root = $("#sheet-root");
+  if (!sheetPushed) { sheetPushed = true; try { history.pushState({ v: view, sheet: true }, ""); } catch (e) {} }
   root.innerHTML = '<div class="scrim" data-act="sheet-bg"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>' + html + "</div></div>";
   document.body.classList.add("locked");
   var first = $(".sheet input:not([type=checkbox]), .sheet select", root);
   if (onMount) onMount($(".sheet", root));
-  if (first && !("ontouchstart" in window)) setTimeout(function () { first.focus(); }, 30);
+  if (first && !("ontouchstart" in window)) first.focus();
 }
-function closeSheet() { $("#sheet-root").innerHTML = ""; document.body.classList.remove("locked"); }
+function closeSheet(fromPop) {
+  $("#sheet-root").innerHTML = ""; document.body.classList.remove("locked");
+  if (sheetPushed && fromPop !== true) { ignorePop = true; try { history.back(); } catch (e) { ignorePop = false; } }
+  sheetPushed = false;
+}
 function confirmSheet(title, text, buttons) {
   openSheet("<h3>" + title + "</h3>" + (text ? '<p style="margin:0">' + text + "</p>" : "") + '<div style="display:grid;gap:8px">' +
     buttons.map(function (b, i) { return '<button class="btn ' + (b.cls || "") + ' wide" data-cb="' + i + '">' + b.label + "</button>"; }).join("") +
@@ -805,6 +821,7 @@ function confirmSheet(title, text, buttons) {
   });
 }
 function opts(list, sel) { return list.map(function (o) { var v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(v) + '"' + (String(v) === String(sel) ? " selected" : "") + ">" + esc(l) + "</option>"; }).join(""); }
+function catOpts(sel) { var l = S.settings.cats.slice(); if (sel && l.indexOf(sel) < 0) l.unshift(sel); return opts(l, sel); }
 function payerSel(sel) { return opts([["j", "החשבון המשותף"], ["a", nameOf("a")], ["b", nameOf("b")]], sel || "j"); }
 function formData(form) { var o = {}; $$("[name]", form).forEach(function (el) { o[el.name] = el.type === "checkbox" ? el.checked : el.value; }); return o; }
 function noteField(v) { return '<label class="field"><span>הערה</span><textarea name="note" maxlength="500" placeholder="לא חובה">' + esc(v || "") + "</textarea></label>"; }
@@ -812,8 +829,8 @@ function noteField(v) { return '<label class="field"><span>הערה</span><texta
 function expenseSheet(id) {
   var e = id ? S.expenses.find(function (x) { return x.id === id; }) : null, d = e || { date: today(), cat: S.settings.cats[0], payer: "j", method: "אשראי", inst: 1 };
   openSheet("<h3>" + (e ? "עריכת הוצאה" : "הוצאה חדשה") + '</h3><form id="f" style="display:grid;gap:12px">' +
-    '<label class="field"><span>סכום</span><div class="money"><input type="number" inputmode="decimal" step="0.01" name="amount" value="' + (e ? e.amount : "") + '" required></div></label>' +
-    '<div class="grid2"><label class="field"><span>קטגוריה</span><select name="cat">' + opts(S.settings.cats, d.cat) + '</select></label>' +
+    '<label class="field"><span>סכום</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="amount" value="' + (e ? e.amount : "") + '" required></div></label>' +
+    '<div class="grid2"><label class="field"><span>קטגוריה</span><select name="cat">' + catOpts(d.cat) + '</select></label>' +
     '<label class="field"><span>תאריך</span><input type="date" name="date" value="' + esc(d.date) + '" required></label></div>' +
     '<div class="grid2"><label class="field"><span>מי שילם</span><select name="payer">' + payerSel(d.payer) + '</select></label>' +
     '<label class="field"><span>אמצעי תשלום</span><select name="method">' + opts(METHODS, d.method) + "</select></label></div>" +
@@ -828,7 +845,8 @@ function expenseSheet(id) {
       rec.amount = amt; rec.cat = f.cat; rec.date = f.date || today(); rec.payer = f.payer; rec.method = f.method;
       rec.inst = Math.max(1, Math.round(num(f.inst) || 1)); rec.note = f.note.trim();
       if (!e) S.expenses.push(rec);
-      save(); closeSheet(); render(); toast(e ? "ההוצאה עודכנה" : "ההוצאה נוספה");
+      if (view === "expenses" && !expQuery) expYm = ymOf(rec.date);
+      save(); closeSheet(); render(); toast(e ? "ההוצאה עודכנה" : "ההוצאה נוספה" + (ymOf(rec.date) !== curYm() ? " ל" + monthTitle(ymOf(rec.date)) : ""));
     };
   });
 }
@@ -839,8 +857,8 @@ function itemSheet(id, room) {
     '<label class="field"><span>שם הפריט</span><input type="text" name="name" value="' + esc(d.name || "") + '" required></label>' +
     '<div class="grid2"><label class="field"><span>חדר / קבוצה</span><select name="room">' + opts(ROOMS, d.room) + '</select></label>' +
     '<label class="field"><span>עדיפות</span><select name="prio">' + opts([["now", PRIO.now], ["month", PRIO.month], ["later", PRIO.later]], d.prio) + "</select></label></div>" +
-    '<div class="grid2"><label class="field"><span>תקציב מתוכנן</span><div class="money"><input type="number" inputmode="decimal" name="planned" value="' + (d.planned != null ? d.planned : "") + '"></div></label>' +
-    '<label class="field"><span>מחיר בפועל</span><div class="money"><input type="number" inputmode="decimal" name="actual" value="' + (d.actual != null ? d.actual : "") + '" placeholder="אחרי הקנייה"></div></label></div>' +
+    '<div class="grid2"><label class="field"><span>תקציב מתוכנן</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="planned" value="' + (d.planned != null ? d.planned : "") + '"></div></label>' +
+    '<label class="field"><span>מחיר בפועל</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="actual" value="' + (d.actual != null ? d.actual : "") + '" placeholder="אחרי הקנייה"></div></label></div>' +
     '<div class="grid2"><label class="field"><span>סטטוס</span><select name="status">' + opts(Object.keys(STATUS).map(function (k) { return [k, STATUS[k]]; }), d.status) + '</select></label>' +
     '<label class="field"><span>תאריך קנייה</span><input type="date" name="date" value="' + esc(d.date || "") + '"></label></div>' +
     '<details' + (i && i.actual != null ? " open" : "") + '><summary>פרטי תשלום, חנות ואחריות</summary><div style="display:grid;gap:12px;margin-top:12px">' +
@@ -856,6 +874,7 @@ function itemSheet(id, room) {
     $("#f", el).onsubmit = function (ev) {
       ev.preventDefault(); var f = formData(ev.target);
       if (!f.name.trim()) { toast("צריך שם לפריט"); return; }
+      if ((num(f.planned) || 0) < 0 || (num(f.actual) || 0) < 0) { toast("סכום לא יכול להיות שלילי"); return; }
       var rec = i || { id: uid(), removed: false };
       rec.name = f.name.trim(); rec.room = f.room; rec.prio = f.prio; rec.planned = num(f.planned) || 0;
       rec.actual = num(f.actual); rec.status = f.status; rec.payer = f.payer; rec.method = f.method;
@@ -891,8 +910,8 @@ function billSheet(id) {
   var avg = b ? avgBill(b) : null;
   openSheet("<h3>" + (b ? esc(b.name) : "חשבון קבוע חדש") + '</h3><form id="f" style="display:grid;gap:12px">' +
     '<div class="grid2"><label class="field"><span>שם / ספק</span><input type="text" name="name" value="' + esc(d.name || "") + '" required></label>' +
-    '<label class="field"><span>קטגוריה</span><select name="cat">' + opts(S.settings.cats, d.cat) + "</select></label></div>" +
-    '<div class="grid2"><label class="field"><span>סכום משוער</span><div class="money"><input type="number" inputmode="decimal" name="amount" value="' + (d.amount != null ? d.amount : "") + '"></div></label>' +
+    '<label class="field"><span>קטגוריה</span><select name="cat">' + catOpts(d.cat) + "</select></label></div>" +
+    '<div class="grid2"><label class="field"><span>סכום משוער</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="amount" value="' + (d.amount != null ? d.amount : "") + '"></div></label>' +
     '<label class="field"><span>תדירות</span><select name="freq">' + opts([1, 2, 3, 6, 12, 0].map(function (k) { return [k, FREQ[k]]; }), d.freq) + "</select></label></div>" +
     '<div class="grid2"><label class="field"><span>חיוב הבא</span><input type="date" name="nextDue" value="' + esc(d.nextDue || "") + '"></label>' +
     '<label class="field"><span>סוף חוזה / מבצע</span><input type="date" name="endDate" value="' + esc(d.endDate || "") + '"></label></div>' +
@@ -906,6 +925,7 @@ function billSheet(id) {
   function (el) {
     $("#f", el).onsubmit = function (ev) {
       ev.preventDefault(); var f = formData(ev.target);
+      if ((num(f.amount) || 0) < 0) { toast("סכום לא יכול להיות שלילי"); return; }
       var rec = b || { id: uid() };
       rec.name = f.name.trim() || "חשבון"; rec.cat = f.cat; rec.amount = num(f.amount); rec.freq = +f.freq;
       rec.nextDue = f.nextDue; rec.endDate = f.endDate; rec.payer = f.payer; rec.method = f.method; rec.note = f.note.trim(); rec.active = f.active;
@@ -917,7 +937,7 @@ function billSheet(id) {
 function payBillSheet(id) {
   var b = S.bills.find(function (x) { return x.id === id; }); if (!b) return;
   openSheet("<h3>תשלום – " + esc(b.name) + '</h3><form id="f" style="display:grid;gap:12px">' +
-    '<div class="grid2"><label class="field"><span>סכום ששולם</span><div class="money"><input type="number" inputmode="decimal" step="0.01" name="amount" value="' + (b.amount != null ? b.amount : "") + '" required></div></label>' +
+    '<div class="grid2"><label class="field"><span>סכום ששולם</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="amount" value="' + (b.amount != null ? b.amount : "") + '" required></div></label>' +
     '<label class="field"><span>תאריך</span><input type="date" name="date" value="' + today() + '"></label></div>' +
     '<div class="grid2"><label class="field"><span>מי שילם</span><select name="payer">' + payerSel(b.payer) + '</select></label>' +
     '<label class="field"><span>אמצעי תשלום</span><select name="method">' + opts(METHODS, b.method) + "</select></label></div>" +
@@ -942,7 +962,7 @@ function depositSheet(id) {
   var dp = id ? S.deposits.find(function (x) { return x.id === id; }) : null, d = dp || { status: "held" };
   openSheet("<h3>" + (dp ? "עריכת פיקדון" : "פיקדון חדש") + '</h3><form id="f" style="display:grid;gap:12px">' +
     '<label class="field"><span>תיאור</span><input type="text" name="name" value="' + esc(d.name || "") + '" placeholder="פיקדון לבעל הדירה" required></label>' +
-    '<div class="grid2"><label class="field"><span>סכום</span><div class="money"><input type="number" inputmode="decimal" name="amount" value="' + (d.amount != null ? d.amount : "") + '"></div></label>' +
+    '<div class="grid2"><label class="field"><span>סכום</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="amount" value="' + (d.amount != null ? d.amount : "") + '"></div></label>' +
     '<label class="field"><span>החזרה צפויה</span><input type="date" name="returnDate" value="' + esc(d.returnDate || "") + '"></label></div>' +
     '<label class="check"><input type="checkbox" name="returned"' + (d.status === "returned" ? " checked" : "") + "><span>הכסף הוחזר</span></label>" +
     noteField(d.note) + '<button class="btn primary wide" type="submit">שמירה</button>' +
@@ -959,7 +979,7 @@ function depositSheet(id) {
 function settleSheet() {
   var b = balance(), from = b.diff > 0 ? "b" : "a", to = from === "a" ? "b" : "a";
   openSheet('<h3>סגירת חשבון</h3><form id="f" style="display:grid;gap:12px"><p style="margin:0">' + esc(nameOf(from)) + " מעביר/ה ל" + esc(nameOf(to)) + ":</p>" +
-    '<div class="money"><input type="number" inputmode="decimal" name="amount" value="' + Math.abs(b.diff) + '"></div>' +
+    '<div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="amount" value="' + Math.abs(b.diff) + '"></div>' +
     '<button class="btn primary wide" type="submit">רשמנו את ההעברה</button></form>', function (el) {
     $("#f", el).onsubmit = function (ev) {
       ev.preventDefault(); var amt = num(formData(ev.target).amount); if (!amt) return;
@@ -1147,7 +1167,7 @@ function buildExport(o) {
     var first = sr.length + 1;
     cats.forEach(function (c) {
       var R = sr.length + 1;
-      sr.push([{ v: c }, { f: "SUMIF(" + rng("C") + ',A' + R + "," + rng("B") + ")", v: byCat[c], s: ST.money }, { f: "IF($B$" + (first + cats.length) + "=0,\"\",B" + R + "/$B$" + (first + cats.length) + ")", v: tot ? byCat[c] / tot : "", s: ST.pct }]);
+      sr.push([{ v: c }, { f: o.exp ? "SUMIF(" + rng("C") + ',A' + R + "," + rng("B") + ")" : null, v: byCat[c], s: ST.money }, { f: "IF($B$" + (first + cats.length) + "=0,\"\",B" + R + "/$B$" + (first + cats.length) + ")", v: tot ? byCat[c] / tot : "", s: ST.pct }]);
     });
     var TR = sr.length + 1;
     sr.push([{ v: "סה״כ הוצאות", s: ST.sumL }, { f: "SUM(B" + first + ":B" + (TR - 1) + ")", v: tot, s: ST.sumM }, { v: "", s: ST.sumL }]);
@@ -1171,10 +1191,7 @@ function buildExport(o) {
     sr.push([{ v: Math.abs(b.diff) < 1 ? "מאוזנים" : (b.diff > 0 ? nameOf("b") + " מעביר/ה ל" + nameOf("a") : nameOf("a") + " מעביר/ה ל" + nameOf("b")), s: ST.sumL }, { v: Math.abs(b.diff), s: ST.sumM }]);
     sheets.push({ name: "סיכום", rows: sr, widths: [44, 15, 10], freeze: 0, merges: ["A1:C1", "A2:C2"], heights: { 0: 24, 3: 22 } });
   }
-  var out = sheets.filter(function (s) { return !s.hidden; });
-  // the summary formulas need the expenses sheet; keep it if summary is on
-  if (o.sum && !o.exp && sheets[0] && sheets[0].name === EXP) out.unshift(sheets[0]);
-  return out;
+  return sheets.filter(function (s) { return !s.hidden; });
 }
 function exportName(o) { return "budget_" + (o.from ? (o.from === o.to ? o.from : o.from + "_to_" + o.to) : "all_" + today()) + ".xlsx"; }
 function makeXlsx() {
@@ -1199,7 +1216,7 @@ function backup() {
 /* ================= events ================= */
 var ACTS = {
   go: function (el) { go(el.dataset.v); },
-  close: closeSheet,
+  close: function () { closeSheet(); },
   "sheet-bg": function (el, ev) { if (ev.target === el) closeSheet(); },
   "add-expense": function () { expenseSheet(null); },
   "edit-expense": function (el) { expenseSheet(el.dataset.id); },
@@ -1250,7 +1267,13 @@ var ACTS = {
     if (S.settings.cats.indexOf(v) >= 0) { toast("הקטגוריה כבר קיימת"); return; }
     S.settings.cats.splice(S.settings.cats.length - 1, 0, v); save(); render();
   },
-  "del-cat": function (el) { S.settings.cats.splice(+el.dataset.i, 1); save(); render(); }
+  "del-cat": function (el) {
+    var i = +el.dataset.i, c = S.settings.cats[i];
+    var used = S.expenses.filter(function (e) { return e.cat === c; }).length + S.bills.filter(function (b) { return b.cat === c; }).length;
+    function del() { S.settings.cats.splice(i, 1); save(); render(); }
+    if (!used) { del(); return; }
+    confirmSheet("למחוק את הקטגוריה „" + esc(c) + "”?", used + " רישומים משתמשים בה. הם ישמרו עליה, אבל לא יהיה אפשר לבחור אותה לרישומים חדשים.", [{ label: "מחיקה", cls: "danger", fn: del }]);
+  }
 };
 document.addEventListener("click", function (ev) {
   var el = ev.target.closest("[data-act]");
@@ -1288,8 +1311,13 @@ document.addEventListener("submit", function (ev) {
     save(); render();
   }
 });
-document.addEventListener("keydown", function (ev) { if (ev.key === "Escape" && $("#sheet-root").innerHTML) closeSheet(); });
+document.addEventListener("keydown", function (ev) {
+  if (ev.key === "Escape" && $("#sheet-root").innerHTML) { closeSheet(); return; }
+  var t = ev.target;
+  if ((ev.key === "Enter" || ev.key === " ") && t.getAttribute && t.getAttribute("role") === "button" && t.dataset.act) { ev.preventDefault(); t.click(); }
+});
 
+try { history.replaceState({ v: view }, ""); } catch (e) {}
 render();
 if ("serviceWorker" in navigator && location.protocol === "https:" && !inViewer) {
   window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js").catch(function () {}); });
