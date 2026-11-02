@@ -13,7 +13,7 @@
 
 ## בדיקות
 
-68 תסריטי בדיקה אוטומטיים מקצה לקצה (Playwright) בתיקייה `tests/`:
+70 תסריטי בדיקה אוטומטיים מקצה לקצה (Playwright) בתיקייה `tests/`:
 
 ```
 npm i -D playwright && npx playwright install chromium

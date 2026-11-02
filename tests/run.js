@@ -369,6 +369,19 @@ test("MOV-15", "מעבר", "פריט ברירת מחדל שנמחק לצמיתו
   assert((await p.inputValue(".sheet [name=room]")) === "elec" && (await p.inputValue(".sheet [name=planned]")) === "2500", "not prefilled");
 });
 
+test("MOV-16", "מעבר", "הורדת תקציב לפריט", "מקרר: תקציב 4500 ← 3000 ← שמירה", "הצפי הכולל יורד ב־1,500", async p => {
+  await onboard(p); await tab(p, "move");
+  const before = +(await p.$$eval(".stat .v", v => v[1].textContent.replace(/[^\d]/g, "")));
+  await openItem(p, "מקרר"); await p.fill(".sheet [name=planned]", "3000"); await submit(p);
+  const after = +(await p.$$eval(".stat .v", v => v[1].textContent.replace(/[^\d]/g, "")));
+  assert(before - after === 1500, `before ${before} after ${after}`);
+});
+test("MOV-17", "מעבר", "תקציב לפריט שכבר נקנה", "מקרר: מחיר בפועל 5200 ← פתיחה מחדש", "מוצג הסבר שהצפי מחושב לפי המחיר בפועל; ההסבר נעלם כשמוחקים את המחיר", async p => {
+  await onboard(p); await openItem(p, "מקרר"); await p.fill(".sheet [name=actual]", "5200"); await submit(p);
+  await openItem(p, "מקרר"); assert(await p.isVisible("#plan-hint"), "no hint");
+  await p.fill(".sheet [name=actual]", ""); assert(await p.isHidden("#plan-hint"), "hint stays");
+});
+
 /* --- bills --- */
 test("BIL-01", "חשבונות", "ממוצע חודשי", "שכר דירה 5500 חודשי, חשמל 450 דו־חודשי", "ממוצע לחודש 5,725", async p => {
   await onboard(p); await setBill(p, "שכר דירה", { amount: 5500 }); await setBill(p, "חשמל", { amount: 450 });

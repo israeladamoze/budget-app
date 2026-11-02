@@ -880,6 +880,7 @@ function itemSheet(id, room) {
     '<label class="field"><span>עדיפות</span><select name="prio">' + opts([["now", PRIO.now], ["month", PRIO.month], ["later", PRIO.later]], d.prio) + "</select></label></div>" +
     '<div class="grid2"><label class="field"><span>תקציב מתוכנן</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="planned" value="' + (d.planned != null ? d.planned : "") + '"></div></label>' +
     '<label class="field"><span>מחיר בפועל</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="actual" value="' + (d.actual != null ? d.actual : "") + '" placeholder="אחרי הקנייה"></div></label></div>' +
+    '<p class="hint" id="plan-hint" style="margin:-4px 0 0"' + (d.actual != null ? "" : " hidden") + '>לפריט יש מחיר בפועל, ולכן הצפי מחושב לפיו ולא לפי התקציב. כדי שהתקציב ייכנס לצפי – מוחקים את המחיר בפועל.</p>' +
     '<div class="grid2"><label class="field"><span>סטטוס</span><select name="status">' + opts(Object.keys(STATUS).map(function (k) { return [k, STATUS[k]]; }), d.status) + '</select></label>' +
     '<label class="field"><span>תאריך קנייה</span><input type="date" name="date" value="' + esc(d.date || "") + '"></label></div>' +
     '<details' + (i && i.actual != null ? " open" : "") + '><summary>פרטי תשלום, חנות ואחריות</summary><div style="display:grid;gap:12px;margin-top:12px">' +
@@ -892,7 +893,8 @@ function itemSheet(id, room) {
     '<button class="btn primary wide" type="submit">שמירה</button>' +
     (i ? '<div class="btns"><button class="btn" type="button" data-act="remove-item" data-id="' + i.id + '">לא צריך</button><button class="btn danger" type="button" data-act="delete-item" data-id="' + i.id + '">מחיקה לצמיתות</button></div>' : "") + "</form>",
   function (el) {
-    var nameIn = $("[name=name]", el);
+    var nameIn = $("[name=name]", el), actIn = $("[name=actual]", el);
+    actIn.addEventListener("input", function () { $("#plan-hint", el).hidden = actIn.value === ""; });
     if (!i) nameIn.addEventListener("input", function () {
       var r = removedByName(nameIn.value), hint = $("#restore-hint", el), sug = itemSuggestions($("[name=room]", el).value).find(function (x) { return x.name === nameIn.value.trim(); });
       if (r) {
