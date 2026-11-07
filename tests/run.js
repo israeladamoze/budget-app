@@ -334,17 +334,28 @@ test("HOM-01", "בית", "כרטיס תקציב המעבר", "תקציב 40,000 
   const cols = await p.$$eval(".hero .cols b", x => x.map(e => e.textContent.replace(/[^\d]/g, "")));
   assert(cols[0] === "40000" && cols[1] === "3200", JSON.stringify(cols));
 });
-test("HOM-02", "בית", "לפי שלבים והבא בתור", "קניית מקרר ← בית", "שלב ראשון 1/7; 'הבא בתור' מציג פריטי חובה מיד שעוד לא נקנו (בלי המקרר)", async p => {
+test("HOM-02", "בית", "לפי שלבים והבא בתור", "קניית מקרר ← בית", "שלב ראשון 1/7; 'לקנות עכשיו' מציג את כל 6 פריטי חובה מיד שנשארו (כולל ספה, בלי המקרר)", async p => {
   await onboard(p); await buy(p, "מקרר", 3200); await tab(p, "home");
   const ph = await p.textContent(".hbars"); assert(ph.includes("1/7"), ph.replace(/\s+/g, " "));
-  const next = await p.$$eval("section.card", s => [...s.find(x => x.textContent.includes("הבא בתור")).querySelectorAll(".li .t")].map(e => e.textContent));
-  assert(next.length && !next.includes("מקרר") && next.includes("ספה"), JSON.stringify(next));
+  const next = await p.$$eval("section.card", s => [...s.find(x => x.textContent.includes("חובה מיד") && x.querySelector(".li")).querySelectorAll(".li .t")].map(e => e.textContent));
+  assert(next.length === 6 && !next.includes("מקרר") && next.includes("ספה"), JSON.stringify(next));
 });
 test("HOM-03", "בית", "איזון 50/50 וסגירת חשבון", "א׳ קונה מקרר ב־1,000 מהחשבון הפרטי ← בית ← סגירת חשבון", "'דני צריך להעביר 500', ואחרי הרישום – 'מאוזנים'", async p => {
   await onboard(p); await buy(p, "מקרר", 1000, { payer: "a" }); await tab(p, "home");
   assert((await p.textContent("#main")).includes("₪500"), "balance wrong");
   await p.click("[data-act=settle]"); await submit(p);
   assert((await p.textContent("#main")).includes("מאוזנים"), "not balanced after settle");
+});
+test("HOM-04b", "בית", "ספה ברשימת 'לקנות עכשיו' אחרי עדכון מגרסה ישנה", "נתונים ישנים (ספה בעדיפות 'חודש ראשון', הרבה מוצרי חשמל לפניה) ← עדכון הרשימה ← בית", "הספה מופיעה ב'לקנות עכשיו', לפי סדר הרשימה המומלצת", async p => {
+  await onboard(p);
+  await setState(p, s => {
+    const old = [["elec","מקרר","now",4500],["elec","מכונת כביסה","now",2500],["elec","תנור / כיריים","now",3000],["elec","נתב / ציוד רשת","now",300],["elec","שואב אבק","month",1200],["elec","מדיח כלים","later",2500],["elec","טלוויזיה","later",2500],["bedroom","מיטה + מזרן","now",5000],["bedroom","מצעים, שמיכות וכריות","now",1200],["living","ספה","month",4500],["move","הובלה","now",2500]];
+    s.items = old.map((x, k) => ({ id: "o" + k, room: x[0], name: x[1], prio: x[2], planned: x[3], actual: null, status: "todo", payer: "j", method: "אשראי", inst: 1, date: "", warranty: "", note: "", store: "", removed: false }));
+    delete s.meta.listVer;
+  });
+  await tab(p, "shop"); await p.click(".banner [data-act=upgrade-list]"); await p.click(".sheet .btn.primary"); await tab(p, "home");
+  const next = await p.$$eval("section.card", s => [...s.find(x => x.textContent.includes("חובה מיד") && x.querySelector(".li")).querySelectorAll(".li .t")].map(e => e.textContent));
+  assert(JSON.stringify(next) === JSON.stringify(["מקרר", "ספה", "מיטה זוגית", "מזרן זוגי", "מכונת כביסה", "שולחן סלון", "מזנון לטלוויזיה"]), JSON.stringify(next));
 });
 test("MOV-04", "מעבר", "הסרת פריט שכבר שולם", "מכונת כביסה 2,300 ← לא צריך ← אישור", "הפריט מוסר והתשלום יורד מ'שולם' (0)", async p => {
   await onboard(p); await buy(p, "מכונת כביסה", 2300);

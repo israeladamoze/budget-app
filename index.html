@@ -227,6 +227,7 @@ var ROOMS = [
 ];
 var ROOM = {}; ROOMS.forEach(function (r) { ROOM[r[0]] = r[1]; });
 var PRIO = { now: "חובה מיד", month: "חודש ראשון", later: "יכול לחכות" };
+var PRIO_ORDER = { now: 0, month: 1, later: 2 };
 var STATUS = { todo: "לבדוק", ordered: "הוזמן", got: "התקבל", returned: "הוחזר" };
 var METHODS = ["אשראי", "מזומן", "העברה בנקאית", "הוראת קבע", "צ׳ק", "ביט / פייבוקס"];
 var DEFAULT_CATS = ["מעבר דירה", "שכר דירה", "ארנונה", "מים", "חשמל", "גז", "ועד בית", "אינטרנט וטלפון", "ביטוח",
@@ -512,10 +513,15 @@ function renderHome() {
       '<div class="bar"><i style="width:' + (t.count ? t.done / t.count * 100 : 0) + '%"></i></div></div>';
   }).join("") + "</div></section>";
 
-  var next = liveItems().filter(function (i) { return !isBought(i) && i.status !== "got" && i.prio === "now" && i.room !== "move"; });
-  if (!next.length) next = liveItems().filter(function (i) { return !isBought(i) && i.status !== "got" && i.room !== "move"; });
-  h += '<section class="card"><div class="row spread"><h2>הבא בתור לקנייה</h2><button class="btn link" data-act="go" data-v="shop">כל הרשימה</button></div>' +
-    (next.length ? '<div class="list">' + next.slice(0, 5).map(itemRow).join("") + "</div>" : '<div class="empty">הכול נקנה 🎉</div>') + "</section>";
+  /* every open "must have now" item, in the order of the recommended list; when those are done – the next 5 */
+  var order = {}; DEFAULT_ITEMS.forEach(function (x, k) { order[x[1]] = k; });
+  var open = liveItems().filter(function (i) { return !isBought(i) && i.status !== "got" && i.room !== "move"; })
+    .sort(function (a, b) { var pa = PRIO_ORDER[a.prio], pb = PRIO_ORDER[b.prio]; return pa !== pb ? pa - pb : (order[a.name] != null ? order[a.name] : 999) - (order[b.name] != null ? order[b.name] : 999); });
+  var next = open.filter(function (i) { return i.prio === "now"; });
+  var nextTitle = next.length ? "לקנות עכשיו – חובה מיד" : "הבא בתור לקנייה";
+  if (!next.length) next = open.slice(0, 5);
+  h += '<section class="card"><div class="row spread"><h2>' + nextTitle + (next.length ? ' <span class="chip num">' + next.length + "</span>" : "") + '</h2><button class="btn link" data-act="go" data-v="shop">כל הרשימה</button></div>' +
+    (next.length ? '<div class="list">' + next.map(itemRow).join("") + "</div>" : '<div class="empty">הכול נקנה 🎉</div>') + "</section>";
 
   var rec = purchases().slice(0, 5);
   if (rec.length) h += '<section class="card"><h2>קניות אחרונות</h2><div class="list">' + rec.map(itemRow).join("") + "</div></section>";
