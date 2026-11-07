@@ -67,7 +67,10 @@ async function toast(p, sub) {
   const t = await p.$(".toast"); return t ? (await t.textContent()).trim() : "";
 }
 async function sheetOpen(p) { return !!(await p.$(".sheet")); }
-async function openItem(p, name) { await tab(p, "shop"); await p.click(`.li[data-act=edit-item] .t:text-is("${name}")`); }
+async function scope(p, v) { await p.click(`[data-act=scope][data-v=${v}]`); }
+async function openItem(p, name) {
+  await tab(p, "shop");
+  if (!(await p.$(`.li[data-act=edit-item] .t:text-is("${name}")`)) && await p.$("[data-act=scope][data-v=all][aria-pressed=false]")) await scope(p, "all"); await p.click(`.li[data-act=edit-item] .t:text-is("${name}")`); }
 async function buy(p, name, actual, o = {}) {
   await openItem(p, name); await p.fill(".sheet [name=actual]", String(actual));
   if (o.payer || o.inst || o.date || o.method) await p.click(".sheet summary").catch(() => {});
@@ -79,7 +82,7 @@ async function buy(p, name, actual, o = {}) {
   await submit(p);
 }
 async function richData(p) {
-  await onboard(p, { budget: 40000, moveDate: iso(24) });
+  await onboard(p, { budget: 40000, moveDate: iso(24) }); await scope(p, "all");
   await buy(p, "מקרר", 3200, { payer: "a", note: "LG, \"מבצע\"" });
   await buy(p, "מכונת כביסה", 2100);
   await buy(p, "מזרן זוגי", 1900, { payer: "b", inst: 10, date: ymShift(-1) + "-20" });
@@ -261,7 +264,7 @@ test("MIG-01", "מעבר", "עדכון לרשימה החדשה בנתונים ק
   assert(!(await p.isVisible(".banner [data-act=upgrade-list]")), "banner stays");
 });
 test("MIG-02", "מעבר", "משתמש חדש", "פתיחה ראשונה ← מעבר", "אין באנר עדכון; הרשימה כבר החדשה (מזנון לטלוויזיה, חדר נוסף / עבודה)", async p => {
-  await onboard(p); await tab(p, "shop");
+  await onboard(p); await tab(p, "shop"); await scope(p, "all");
   assert(!(await p.isVisible(".banner [data-act=upgrade-list]")), "banner for new user");
   const t = await p.textContent("#main"); assert(t.includes("מזנון לטלוויזיה") && t.includes("חדר נוסף / עבודה"), "new list missing");
 });
@@ -313,6 +316,57 @@ test("UI-07", "תצוגה", "שגיאות JavaScript", "זרימה מלאה עם
   assert(p.errors.length === 0, p.errors.join(" | "));
 });
 
+/* --- urgent focus --- */
+test("FOC-01", "דחוף", "ברירת מחדל: רק דחוף", "פתיחה עם תקציב 10,000 ← בית", "'נשאר מהתקציב לדחוף' 10,000; צפי לדחוף 15,200 (7 פריטי שלב ראשון); התראה שהצפי גבוה מהתקציב ב־5,200", async p => {
+  await onboard(p, { budget: 10000 });
+  assert((await p.textContent(".hero .k")).includes("לדחוף"), await p.textContent(".hero .k"));
+  const cols = await p.$$eval(".hero .cols b", x => x.map(e => e.textContent.replace(/[^\d]/g, "")));
+  assert(cols[0] === "10000" && cols[2] === "15200", JSON.stringify(cols));
+  assert((await p.textContent(".banner")).includes("5,200"), await p.textContent(".banner"));
+  assert((await p.textContent("#main")).includes("מה דחוף לקנות"), "urgent list title");
+});
+test("FOC-02", "דחוף", "רשימת הקניות – רק דחוף", "קניות במצב 'דחוף בלבד'", "מוצגים רק 7 פריטי 'חובה מיד'; אין 'עלויות המעבר' ואין חדרים ריקים; 'כל הרשימה' מציג את כל 30", async p => {
+  await onboard(p); await tab(p, "shop");
+  const n = await p.$$eval(".li[data-act=edit-item]", x => x.length);
+  const t = await p.textContent("#main");
+  assert(n === 7 && !t.includes("עלויות המעבר") && !t.includes("מדיח כלים") && !t.includes("אין פריטים"), "urgent items " + n);
+  await scope(p, "all");
+  assert((await p.$$eval(".li[data-act=edit-item]", x => x.length)) === 30, "all list");
+});
+test("FOC-03", "דחוף", "קנייה לא דחופה לא נספרת בתקציב הדחוף", "קניית מייבש כביסה 2,000 ← בית (דחוף) ← כל הרשימה", "בדחוף 'שולם' נשאר 0; ב'כל הרשימה' 2,000", async p => {
+  await onboard(p, { budget: 10000 }); await buy(p, "מייבש כביסה", 2000);
+  await tab(p, "home"); await scope(p, "urgent");
+  assert((await p.$$eval(".hero .cols b", x => x[1].textContent.replace(/[^\d]/g, ""))) === "0", "counted in urgent");
+  await scope(p, "all");
+  assert((await p.$$eval(".hero .cols b", x => x[1].textContent.replace(/[^\d]/g, ""))) === "2000", "missing in all");
+});
+test("FOC-04", "דחוף", "העברת פריט לדחוף", "מדיח כלים: עדיפות ← 'חובה מיד' ← בית (דחוף)", "הצפי לדחוף עולה ב־2,800 והמדיח מופיע ב'מה דחוף לקנות'", async p => {
+  await onboard(p); await openItem(p, "מדיח כלים"); await p.selectOption(".sheet [name=prio]", "now"); await submit(p);
+  await tab(p, "home"); await scope(p, "urgent");
+  assert((await p.$$eval(".hero .cols b", x => x[2].textContent.replace(/[^\d]/g, ""))) === "18000", "planned");
+  assert((await p.textContent("#main")).includes("מדיח כלים"), "not listed");
+});
+test("FOC-05", "דחוף", "פריט חדש במצב דחוף", "קניות (דחוף) ← + פריט בסלון ← 'כורסה' 900", "הפריט נשמר בעדיפות 'חובה מיד' ונכנס לצפי לדחוף", async p => {
+  await onboard(p); await tab(p, "shop"); await p.click("[data-act=add-item][data-room=living]");
+  assert((await p.inputValue(".sheet [name=prio]")) === "now", "default prio");
+  await p.fill(".sheet [name=name]", "כורסה"); await p.fill(".sheet [name=planned]", "900"); await submit(p);
+  assert((await state(p)).items.find(i => i.name === "כורסה").prio === "now", "prio");
+  assert((await p.$$eval(".stat .v", v => v[1].textContent.replace(/[^\d]/g, ""))) === "16100", "planned");
+});
+test("FOC-06", "דחוף", "הבחירה נשמרת", "מעבר ל'כל הרשימה' ← טעינה מחדש", "האפליקציה נפתחת שוב ב'כל הרשימה'", async p => {
+  await onboard(p); await scope(p, "all"); await p.reload();
+  assert(await p.$("[data-act=scope][data-v=all][aria-pressed=true]"), "not kept");
+});
+test("FOC-07", "דחוף", "אקסל במצב דחוף", "קניית מקרר 3,200 ומייבש 2,000 ← דוחות (דחוף) ← הורדה; חישוב מחדש", "סיכום 'דחוף בלבד': שולם 3,200, צפי 14,900; סכומי החדרים בנוסחאות שווים לאפליקציה", async p => {
+  await onboard(p, { budget: 10000 }); await buy(p, "מקרר", 3200); await buy(p, "מייבש כביסה", 2000);
+  await tab(p, "reports"); await scope(p, "urgent");
+  const rc = xlsx(await download(p, "[data-act=export-xlsx]"), true), sm = rc["סיכום"].rows;
+  assert(String(sm[0][0]).includes("דחוף בלבד"), sm[0][0]);
+  assert(sm.find(r => r[0] === "שולם עד כה")[1] === 3200 && sm.find(r => r[0] === "צפי לדחוף")[1] === 14900, "totals");
+  assert(sm.find(r => r[0] === "מוצרי חשמל")[2] === 3200 && sm.find(r => r[0] === "מוצרי חשמל")[1] === 5700, "room formulas " + JSON.stringify(sm.find(r => r[0] === "מוצרי חשמל")));
+  assert(!sm.some(r => r[0] === "לפי שלב"), "phase block in urgent");
+});
+
 /* --- move-only focus --- */
 test("NAV-01", "מבנה", "רק מה שקשור למעבר", "פתיחה ← סקירת הלשוניות וההגדרות", "לשוניות: בית, קניות, משימות, דוחות. אין חשבונות, הוצאות, שכר דירה, העברות, הוצאות משתנות או פיקדונות", async p => {
   await onboard(p);
@@ -335,7 +389,7 @@ test("HOM-01", "בית", "כרטיס תקציב המעבר", "תקציב 40,000 
   assert(cols[0] === "40000" && cols[1] === "3200", JSON.stringify(cols));
 });
 test("HOM-02", "בית", "לפי שלבים והבא בתור", "קניית מקרר ← בית", "שלב ראשון 1/7; 'לקנות עכשיו' מציג את כל 6 פריטי חובה מיד שנשארו (כולל ספה, בלי המקרר)", async p => {
-  await onboard(p); await buy(p, "מקרר", 3200); await tab(p, "home");
+  await onboard(p); await buy(p, "מקרר", 3200); await tab(p, "home"); await scope(p, "all");
   const ph = await p.textContent(".hbars"); assert(ph.includes("1/7"), ph.replace(/\s+/g, " "));
   const next = await p.$$eval("section.card", s => [...s.find(x => x.textContent.includes("חובה מיד") && x.querySelector(".li")).querySelectorAll(".li .t")].map(e => e.textContent));
   assert(next.length === 6 && !next.includes("מקרר") && next.includes("ספה"), JSON.stringify(next));
@@ -382,7 +436,7 @@ test("MIG-03", "מעבר", "הוצאות מעבר מגרסה קודמת", "נת�
   const s = await state(p), it = s.items.find(i => i.name === "הובלה נוספת");
   assert(it && it.actual === 600 && it.room === "move" && it.note === "מהדירה הישנה", JSON.stringify(it));
   assert(s.expenses.length === 1, "move expense not removed");
-  await tab(p, "home"); assert((await p.$$eval(".hero .cols b", x => x[1].textContent.replace(/[^\d]/g, ""))) === "600", "not counted");
+  await tab(p, "home"); await scope(p, "all"); assert((await p.$$eval(".hero .cols b", x => x[1].textContent.replace(/[^\d]/g, ""))) === "600", "not counted");
   assert(!(await p.textContent("#main")).includes("סופר"), "general expense shown");
 });
 test("REP-01", "דוחות", "לפי חדר", "נתונים לדוגמה ← דוחות", "שורת הסה״כ שווה לסכום השורות בכל עמודה; שולם 7,200", async p => {

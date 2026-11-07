@@ -271,7 +271,7 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 function seed() {
   return {
     v: 1, setup: false,
-    settings: { nameA: "", nameB: "", moveDate: "", moveBudget: 42500, variable: 0, cats: DEFAULT_CATS.slice() },
+    settings: { nameA: "", nameB: "", moveDate: "", moveBudget: 42500, scope: "urgent", variable: 0, cats: DEFAULT_CATS.slice() },
     items: DEFAULT_ITEMS.map(function (x) { return { id: uid(), room: x[0], name: x[1], prio: x[2], planned: x[3], actual: null, status: "todo", store: "", payer: "j", method: "אשראי", inst: 1, date: "", warranty: "", note: "", removed: false }; }),
     bills: [],
     expenses: [], deposits: [], settlements: [], transfers: [], checklist: {}, meters: { water: "", elec: "", gas: "", date: "" },
@@ -287,6 +287,7 @@ function normalize(o) {
     settings: {
       nameA: s.nameA || "", nameB: s.nameB || "", moveDate: s.moveDate || "",
       moveBudget: typeof s.moveBudget === "number" ? s.moveBudget : 50000,
+      scope: s.scope === "all" ? "all" : "urgent",
       variable: +s.variable || 0,
       cats: Array.isArray(s.cats) && s.cats.length ? s.cats : DEFAULT_CATS.slice()
     },
@@ -397,12 +398,21 @@ function liveItems() { return S.items.filter(function (i) { return !i.removed; }
 function isBought(i) { return i.actual != null && i.status !== "returned"; }
 function itemSpent(i) { return !i.removed && isBought(i) ? +i.actual : 0; }
 function itemCost(i) { return isBought(i) ? +i.actual : +i.planned || 0; }
+/* focus: "urgent" = only phase-1 items (priority "now", not move costs) are shown and counted against the budget */
+function urgentOnly() { return S.settings.scope !== "all"; }
+function isUrgent(i) { return i.prio === "now" && i.room !== "move"; }
+function inScope(i) { return !urgentOnly() || isUrgent(i); }
+function scopedItems() { return liveItems().filter(inScope); }
+function scopeToggle() {
+  return '<div class="seg" role="group" aria-label="מה מוצג"><button data-act="scope" data-v="urgent" aria-pressed="' + urgentOnly() + '">דחוף בלבד</button>' +
+    '<button data-act="scope" data-v="all" aria-pressed="' + !urgentOnly() + '">כל הרשימה</button></div>';
+}
 function moveTotals() {
-  var live = liveItems();
+  var live = scopedItems();
   var openItems = live.filter(function (i) { return !isBought(i) && i.status !== "got"; });
   return {
     planned: sum(live, itemCost),
-    spent: sum(S.items, itemSpent),
+    spent: sum(S.items.filter(inScope), itemSpent),
     budget: +S.settings.moveBudget || 0,
     left: sum(openItems, function (i) { return +i.planned || 0; }),
     open: openItems.length,
@@ -497,17 +507,19 @@ function renderHome() {
   var s = S.settings, mt = moveTotals();
   var pct = mt.budget ? Math.min(100, mt.spent / mt.budget * 100) : 0;
   var h = topbar("שלום " + esc(s.nameA || "") + (s.nameB ? " ו" + esc(s.nameB) : ""), countdown() + (s.moveDate ? " · " + shortDate(s.moveDate) : ""));
+  var U = urgentOnly();
+  h += scopeToggle();
   h += alertsHtml();
-  h += '<section class="hero"><div><div class="k">נשאר מתקציב המעבר</div><div class="big">' + money(mt.budget - mt.spent) + "</div></div>" +
+  h += '<section class="hero"><div><div class="k">' + (U ? "נשאר מהתקציב לדחוף" : "נשאר מתקציב המעבר") + '</div><div class="big">' + money(mt.budget - mt.spent) + "</div></div>" +
     '<div class="bar ' + (pct >= 100 ? "bad" : pct >= 80 ? "warn" : "") + '" style="background:rgba(255,255,255,.55)"><i style="width:' + pct + '%"></i></div>' +
-    '<div class="cols"><div><span>תקציב</span><b>' + money(mt.budget) + "</b></div><div><span>שולם</span><b>" + money(mt.spent) + "</b></div><div><span>צפי כולל</span><b>" + money(mt.planned) + "</b></div></div></section>";
+    '<div class="cols"><div><span>תקציב</span><b>' + money(mt.budget) + "</b></div><div><span>שולם</span><b>" + money(mt.spent) + "</b></div><div><span>" + (U ? "צפי לדחוף" : "צפי כולל") + "</span><b>" + money(mt.planned) + "</b></div></div></section>";
 
   h += '<section class="card"><div class="stats">' +
     '<div class="stat"><div class="v num">' + mt.done + "/" + mt.count + '</div><div class="k">פריטים נקנו</div></div>' +
     '<div class="stat"><div class="v">' + money(mt.left) + '</div><div class="k">עוד לקנות</div></div>' +
-    '<div class="stat"><div class="v' + (mt.budget - mt.planned < 0 ? " over" : "") + '">' + money(mt.budget - mt.planned) + '</div><div class="k">' + (mt.budget - mt.planned < 0 ? "חריגה צפויה" : "יישאר אחרי הכול") + "</div></div></div></section>";
+    '<div class="stat"><div class="v' + (mt.budget - mt.planned < 0 ? " over" : "") + '">' + money(mt.budget - mt.planned) + '</div><div class="k">' + (mt.budget - mt.planned < 0 ? "חריגה צפויה" : U ? "יישאר אחרי הדחוף" : "יישאר אחרי הכול") + "</div></div></div></section>";
 
-  h += '<section class="card"><h2>לפי שלבים</h2><div class="hbars">' + PHASES.map(function (p) {
+  if (!U) h += '<section class="card"><h2>לפי שלבים</h2><div class="hbars">' + PHASES.map(function (p) {
     var t = phaseTotals(p[0]); if (!t.count) return "";
     return '<div class="hb"><div class="row spread"><span>' + p[1] + '</span><span class="small"><span class="num">' + t.done + "/" + t.count + '</span> · ' + money(t.spent) + ' <span class="muted">מתוך ' + moneyT(t.cost) + "</span></span></div>" +
       '<div class="bar"><i style="width:' + (t.count ? t.done / t.count * 100 : 0) + '%"></i></div></div>';
@@ -515,15 +527,15 @@ function renderHome() {
 
   /* every open "must have now" item, in the order of the recommended list; when those are done – the next 5 */
   var order = {}; DEFAULT_ITEMS.forEach(function (x, k) { order[x[1]] = k; });
-  var open = liveItems().filter(function (i) { return !isBought(i) && i.status !== "got" && i.room !== "move"; })
+  var open = scopedItems().filter(function (i) { return !isBought(i) && i.status !== "got" && i.room !== "move"; })
     .sort(function (a, b) { var pa = PRIO_ORDER[a.prio], pb = PRIO_ORDER[b.prio]; return pa !== pb ? pa - pb : (order[a.name] != null ? order[a.name] : 999) - (order[b.name] != null ? order[b.name] : 999); });
   var next = open.filter(function (i) { return i.prio === "now"; });
-  var nextTitle = next.length ? "לקנות עכשיו – חובה מיד" : "הבא בתור לקנייה";
-  if (!next.length) next = open.slice(0, 5);
+  var nextTitle = U ? "מה דחוף לקנות" : next.length ? "לקנות עכשיו – חובה מיד" : "הבא בתור לקנייה";
+  if (!next.length && !U) next = open.slice(0, 5);
   h += '<section class="card"><div class="row spread"><h2>' + nextTitle + (next.length ? ' <span class="chip num">' + next.length + "</span>" : "") + '</h2><button class="btn link" data-act="go" data-v="shop">כל הרשימה</button></div>' +
-    (next.length ? '<div class="list">' + next.map(itemRow).join("") + "</div>" : '<div class="empty">הכול נקנה 🎉</div>') + "</section>";
+    (next.length ? '<div class="list">' + next.map(itemRow).join("") + "</div>" : '<div class="empty">' + (U ? "כל הדחוף נקנה 🎉 אפשר לעבור ל'כל הרשימה'." : "הכול נקנה 🎉") + "</div>") + "</section>";
 
-  var rec = purchases().slice(0, 5);
+  var rec = purchases().filter(inScope).slice(0, 5);
   if (rec.length) h += '<section class="card"><h2>קניות אחרונות</h2><div class="list">' + rec.map(itemRow).join("") + "</div></section>";
 
   var b = balance();
@@ -548,9 +560,9 @@ function alertsHtml() {
   var out = [], mt = moveTotals();
   if ((S.meta.listVer || 1) < LIST_VER) out.push(["info", "יש רשימת קניות מעודכנת: שלב ראשון ושלב שני. פריטים שכבר קניתם ופריטים שהוספתם יישארו.", "list"]);
   if (mt.budget) {
-    if (mt.spent >= mt.budget) out.push(["bad", "חרגתם מתקציב המעבר ב־" + money(mt.spent - mt.budget)]);
-    else if (mt.spent >= mt.budget * .8) out.push(["warn", "ניצלתם " + Math.round(mt.spent / mt.budget * 100) + "% מתקציב המעבר"]);
-    else if (mt.planned > mt.budget) out.push(["info", "הצפי הכולל גבוה מהתקציב ב־" + money(mt.planned - mt.budget) + ". אפשר לסמן 'לא צריך' על פריטים או להוריד תקציב לפריט."]);
+    if (mt.spent >= mt.budget) out.push(["bad", "חרגתם מהתקציב ב־" + money(mt.spent - mt.budget)]);
+    else if (mt.spent >= mt.budget * .8) out.push(["warn", "ניצלתם " + Math.round(mt.spent / mt.budget * 100) + "% מהתקציב"]);
+    else if (mt.planned > mt.budget) out.push(["info", (urgentOnly() ? "הצפי לדחוף" : "הצפי הכולל") + " גבוה מהתקציב ב־" + money(mt.planned - mt.budget) + ". אפשר לסמן 'לא צריך' על פריטים או להוריד תקציב לפריט."]);
   }
   S.items.forEach(function (i) { if (!i.removed && i.warranty) { var d = daysUntil(i.warranty); if (d >= 0 && d <= 30) out.push(["info", "האחריות על <b>" + esc(i.name) + "</b> מסתיימת ב־" + shortDate(i.warranty)]); } });
   var lb = S.meta.lastBackup;
@@ -566,13 +578,14 @@ function alertsHtml() {
 /* ================= shopping list ================= */
 function renderShop() {
   var mt = moveTotals(), s = S.settings;
-  var h = topbar("רשימת קניות", countdown());
+  var U = urgentOnly();
+  var h = topbar("רשימת קניות", countdown()) + scopeToggle();
   if ((S.meta.listVer || 1) < LIST_VER)
     h += '<div class="banner info"><span>יש רשימת קניות מעודכנת: שלב ראשון ושלב שני לפי התקציב החדש. פריטים שכבר קניתם ופריטים שהוספתם בעצמכם יישארו.</span>' +
       '<div class="btns" style="width:100%"><button class="btn sm primary" data-act="upgrade-list">עדכון הרשימה</button><button class="btn sm" data-act="dismiss-list">לא עכשיו</button></div></div>';
   var pct = mt.budget ? Math.min(100, mt.spent / mt.budget * 100) : 0;
   h += '<section class="card"><div class="stats"><div class="stat"><div class="v">' + money(mt.budget) + '</div><div class="k">תקציב</div></div>' +
-    '<div class="stat"><div class="v">' + money(mt.planned) + '</div><div class="k">צפי</div></div>' +
+    '<div class="stat"><div class="v">' + money(mt.planned) + '</div><div class="k">' + (U ? "צפי לדחוף" : "צפי") + '</div></div>' +
     '<div class="stat"><div class="v">' + money(mt.spent) + '</div><div class="k">שולם</div></div></div>' +
     '<div class="bar ' + (pct >= 100 ? "bad" : pct >= 80 ? "warn" : "") + '"><i style="width:' + pct + '%"></i></div>' +
     '<div class="seg"><button data-act="move-filter" data-v="all" aria-pressed="' + (moveFilter === "all") + '">הכול</button>' +
@@ -580,7 +593,8 @@ function renderShop() {
     '<button data-act="move-filter" data-v="done" aria-pressed="' + (moveFilter === "done") + '">נקנה</button></div></section>';
 
   ROOMS.forEach(function (r) {
-    var all = S.items.filter(function (i) { return i.room === r[0] && !i.removed; });
+    var all = S.items.filter(function (i) { return i.room === r[0] && !i.removed && inScope(i); });
+    if (U && !all.length) return;
     var items = all.filter(function (i) {
       var done = isBought(i) || i.status === "got";
       return moveFilter === "all" || (moveFilter === "done" ? done : !done);
@@ -588,8 +602,9 @@ function renderShop() {
     if (!all.length && moveFilter !== "all") return;
     h += '<section class="card room"><div class="room-h"><h2>' + r[1] + '</h2><span class="small muted">' + money(sum(all, itemCost)) + "</span></div>" +
       (items.length ? '<div class="list">' + items.map(itemRow).join("") + "</div>" : '<div class="empty" style="padding:8px">' + (all.length ? "אין פריטים בסינון הזה" : "אין פריטים") + "</div>") +
-      '<button class="btn sm soft" data-act="add-item" data-room="' + r[0] + '">' + svg("plus").replace("<svg", '<svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2"') + " פריט</button></section>";
+      '<button class="btn sm soft" data-act="add-item" data-room="' + r[0] + '"' + (U ? ' data-prio="now"' : "") + ">" + svg("plus").replace("<svg", '<svg style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2"') + " פריט</button></section>";
   });
+  if (U) h += '<p class="hint" style="margin:0;text-align:center">מוצגים רק פריטים דחופים (עדיפות "חובה מיד"). שאר הרשימה – ב"כל הרשימה".</p>';
   var removed = S.items.filter(function (i) { return i.removed; });
   if (removed.length) {
     h += '<section class="card"><button class="btn link" data-act="toggle-removed" style="justify-self:start">' + (showRemoved ? "הסתרת" : "הצגת") + " פריטים שהוסרו (" + removed.length + ")</button>" +
@@ -629,25 +644,25 @@ function renderChecklist() {
 
 /* ================= reports ================= */
 function renderReports() {
-  var mt = moveTotals();
-  var h = topbar("דוחות", "");
+  var mt = moveTotals(), U = urgentOnly();
+  var h = topbar("דוחות", U ? "דחוף בלבד" : "") + scopeToggle();
   // by room
   h += '<section class="card"><h2>לפי חדר – תכנון מול בפועל</h2><table class="t"><thead><tr><th>חדר</th><th class="n">תקציב</th><th class="n">צפי</th><th class="n">שולם</th></tr></thead><tbody>' +
     ROOMS.map(function (r) {
-      var its = liveItems().filter(function (i) { return i.room === r[0]; });
+      var its = scopedItems().filter(function (i) { return i.room === r[0]; });
       if (!its.length) return "";
       return "<tr><td>" + r[1] + '</td><td class="n">' + money(sum(its, function (i) { return +i.planned || 0; })) + '</td><td class="n">' + money(sum(its, itemCost)) + '</td><td class="n">' + money(sum(its, itemSpent)) + "</td></tr>";
     }).join("") +
-    '<tr><td><b>סה״כ</b></td><td class="n"><b>' + money(sum(liveItems(), function (i) { return +i.planned || 0; })) + '</b></td><td class="n"><b>' + money(mt.planned) + '</b></td><td class="n"><b>' + money(mt.spent) + "</b></td></tr></tbody></table>" +
+    '<tr><td><b>סה״כ</b></td><td class="n"><b>' + money(sum(scopedItems(), function (i) { return +i.planned || 0; })) + '</b></td><td class="n"><b>' + money(mt.planned) + '</b></td><td class="n"><b>' + money(mt.spent) + "</b></td></tr></tbody></table>" +
     '<p class="hint" style="margin:0">צפי = מחיר בפועל לפריטים שנקנו, ותקציב לפריטים שעוד לא. תקציב המעבר: ' + moneyT(mt.budget) + ".</p></section>";
 
   // by phase
-  h += '<section class="card"><h2>לפי שלבים</h2><table class="t"><thead><tr><th>שלב</th><th class="n">נקנו</th><th class="n">צפי</th><th class="n">שולם</th></tr></thead><tbody>' +
+  if (!U) h += '<section class="card"><h2>לפי שלבים</h2><table class="t"><thead><tr><th>שלב</th><th class="n">נקנו</th><th class="n">צפי</th><th class="n">שולם</th></tr></thead><tbody>' +
     PHASES.map(function (p) { var t = phaseTotals(p[0]); if (!t.count) return ""; return "<tr><td>" + p[1] + '</td><td class="n num">' + t.done + "/" + t.count + '</td><td class="n">' + money(t.cost) + '</td><td class="n">' + money(t.spent) + "</td></tr>"; }).join("") +
     "</tbody></table></section>";
 
   // purchases by month
-  var pur = purchases();
+  var pur = purchases().filter(inScope);
   if (pur.length) {
     var months = {}; pur.forEach(function (i) { var m = ymOf(i.date || today()); months[m] = (months[m] || 0) + itemSpent(i); });
     var keys = Object.keys(months).sort(), vmax = Math.max.apply(null, keys.map(function (k) { return months[k]; }).concat([1]));
@@ -671,7 +686,7 @@ function renderReports() {
   h += '<section class="card"><h2>ייצוא לאקסל</h2>' +
     '<div style="display:grid;gap:10px"><span class="label">מה לכלול</span>' +
     '<label class="check"><input type="checkbox" id="x-move" checked><span>רשימת הקניות</span></label>' +
-    '<label class="check"><input type="checkbox" id="x-sum" checked><span>סיכום (לפי חדר ושלב, ואיזון)</span></label>' +
+    '<label class="check"><input type="checkbox" id="x-sum" checked><span>סיכום (' + (U ? "דחוף בלבד" : "לפי חדר ושלב") + ', ואיזון)</span></label>' +
     "</div>" +
     '<div class="btns"><button class="btn primary" data-act="export-xlsx">הורדת קובץ אקסל</button>' +
     (canShareFiles() ? '<button class="btn soft" data-act="share-xlsx">שליחה (וואטסאפ / מייל)</button>' : "") + "</div>" +
@@ -686,7 +701,8 @@ function renderSettings() {
     '<form class="card" id="settings-form"><h2>פרטים</h2>' +
     '<div class="grid2"><label class="field"><span>שם – א׳</span><input type="text" name="nameA" value="' + esc(s.nameA) + '"></label><label class="field"><span>שם – ב׳</span><input type="text" name="nameB" value="' + esc(s.nameB) + '"></label></div>' +
     '<div class="grid2"><label class="field"><span>תאריך מעבר</span><input type="date" name="moveDate" value="' + esc(s.moveDate) + '"></label>' +
-    '<label class="field"><span>תקציב מעבר</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="moveBudget" value="' + (s.moveBudget || "") + '"></div></label></div>' +
+    '<label class="field"><span>' + (urgentOnly() ? "תקציב לדחוף" : "תקציב מעבר") + '</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="moveBudget" value="' + (s.moveBudget || "") + '"></div></label></div>' +
+    '<p class="hint" style="margin:0">' + (urgentOnly() ? 'כרגע התקציב נמדד רק מול הפריטים הדחופים (עדיפות "חובה מיד"). כדי למדוד מול כל הרשימה – "כל הרשימה" בראש מסך הבית.' : 'כרגע התקציב נמדד מול כל הרשימה. כדי להתמקד רק בדחוף – "דחוף בלבד" בראש מסך הבית.') + "</p>" +
     '<button class="btn primary" type="submit">שמירה</button></form>' +
     '<section class="card"><h2>רשימת הקניות המומלצת</h2><p class="hint" style="margin:0">טעינה מחדש של רשימת הקניות לפי שלב ראשון ושני. פריטים שכבר קניתם ופריטים שהוספתם בעצמכם יישארו.</p><button class="btn soft" data-act="upgrade-list">טעינת הרשימה</button></section>' +
     '<section class="card"><h2>גיבוי ושיתוף</h2><p class="hint" style="margin:0">הנתונים נשמרים בטלפון הזה בלבד. כדי לשתף את בן/בת הזוג או לעבור טלפון – שומרים גיבוי, שולחים את הקובץ, ומשחזרים בטלפון השני.' +
@@ -736,9 +752,9 @@ function itemSuggestions(room) {
   return out;
 }
 function removedByName(name) { name = (name || "").trim(); return S.items.find(function (i) { return i.removed && i.name === name; }); }
-function itemSheet(id, room) {
+function itemSheet(id, room, prio) {
   var i = id ? S.items.find(function (x) { return x.id === id; }) : null;
-  var d = i || { room: room || "elec", prio: "month", status: "todo", payer: "j", method: "אשראי", inst: 1, planned: "" };
+  var d = i || { room: room || "elec", prio: prio || (urgentOnly() ? "now" : "month"), status: "todo", payer: "j", method: "אשראי", inst: 1, planned: "" };
   openSheet("<h3>" + (i ? esc(i.name) : "פריט חדש") + '</h3><form id="f" style="display:grid;gap:12px">' +
     '<label class="field"><span>שם הפריט</span><input type="text" name="name" value="' + esc(d.name || "") + '" required' + (i ? "" : ' list="item-suggest" autocomplete="off" placeholder="בחירה מהרשימה או הקלדה חופשית"') + ">" +
     (i ? "" : '<datalist id="item-suggest">' + itemSuggestions(d.room).map(function (x) { return '<option value="' + esc(x.name) + '">' + esc(x.label) + "</option>"; }).join("") + "</datalist>" +
@@ -957,11 +973,11 @@ function buildExport(o) {
   }
   if (o.sum) {
     var withF = o.move, rng = function (c) { return "'" + LIST + "'!$" + c + "$5:$" + c + "$" + Math.max(5, ml); };
-    var sr = [[{ v: "סיכום המעבר", s: ST.title }], [{ v: gen, s: ST.muted }], null];
+    var sr = [[{ v: urgentOnly() ? "סיכום המעבר – דחוף בלבד" : "סיכום המעבר", s: ST.title }], [{ v: gen, s: ST.muted }], null];
     sr.push([{ v: "תקציב המעבר", s: ST.head }, { v: "סכום", s: ST.head }]);
     var b0 = sr.length + 1;
     sr.push([{ v: "תקציב" }, { v: mt.budget, s: ST.money }]);
-    sr.push([{ v: "צפי כולל" }, { v: mt.planned, s: ST.money }]);
+    sr.push([{ v: urgentOnly() ? "צפי לדחוף" : "צפי כולל" }, { v: mt.planned, s: ST.money }]);
     sr.push([{ v: "שולם עד כה" }, { v: mt.spent, s: ST.money }]);
     sr.push([{ v: "נשאר מהתקציב", s: ST.sumL }, { f: "B" + b0 + "-B" + (b0 + 2), v: mt.budget - mt.spent, s: ST.sumM }]);
     sr.push([{ v: mt.budget - mt.planned < 0 ? "חריגה צפויה" : "יישאר אחרי הכול", s: ST.sumL }, { f: "B" + b0 + "-B" + (b0 + 1), v: mt.budget - mt.planned, s: ST.sumM }]);
@@ -969,17 +985,16 @@ function buildExport(o) {
     sr.push([{ v: "לפי חדר", s: ST.head }, { v: "תקציב", s: ST.head }, { v: "שולם", s: ST.head }]);
     var r0 = sr.length + 1;
     ROOMS.forEach(function (r) {
-      var ri = liveItems().filter(function (i) { return i.room === r[0]; }); if (!ri.length) return;
+      var ri = scopedItems().filter(function (i) { return i.room === r[0]; }); if (!ri.length) return;
       var R = sr.length + 1;
       sr.push([{ v: r[1] },
-        { f: withF ? "SUMIFS(" + rng("D") + "," + rng("A") + ",A" + R + "," + rng("G") + ',"<>הוסר (לא צריך)")' : null, v: sum(ri, function (i) { return +i.planned || 0; }), s: ST.money },
-        { f: withF ? "SUMIFS(" + rng("E") + "," + rng("A") + ",A" + R + "," + rng("G") + ',"<>הוסר (לא צריך)")' : null, v: sum(ri, itemSpent), s: ST.money }]);
+        { f: withF ? "SUMIFS(" + rng("D") + "," + rng("A") + ",A" + R + "," + rng("G") + ',"<>הוסר (לא צריך)"' + (urgentOnly() ? "," + rng("C") + ',"חובה מיד"' : "") + ")" : null, v: sum(ri, function (i) { return +i.planned || 0; }), s: ST.money },
+        { f: withF ? "SUMIFS(" + rng("E") + "," + rng("A") + ",A" + R + "," + rng("G") + ',"<>הוסר (לא צריך)"' + (urgentOnly() ? "," + rng("C") + ',"חובה מיד"' : "") + ")" : null, v: sum(ri, itemSpent), s: ST.money }]);
     });
     var r1 = sr.length;
-    sr.push([{ v: "סה״כ", s: ST.sumL }, { f: "SUM(B" + r0 + ":B" + r1 + ")", v: sum(liveItems(), function (i) { return +i.planned || 0; }), s: ST.sumM }, { f: "SUM(C" + r0 + ":C" + r1 + ")", v: mt.spent, s: ST.sumM }]);
-    sr.push(null);
-    sr.push([{ v: "לפי שלב", s: ST.head }, { v: "צפי", s: ST.head }, { v: "שולם", s: ST.head }]);
-    PHASES.forEach(function (p) { var t = phaseTotals(p[0]); if (t.count) sr.push([{ v: p[1] + " (" + t.done + "/" + t.count + " נקנו)" }, { v: t.cost, s: ST.money }, { v: t.spent, s: ST.money }]); });
+    sr.push([{ v: "סה״כ", s: ST.sumL }, { f: "SUM(B" + r0 + ":B" + r1 + ")", v: sum(scopedItems(), function (i) { return +i.planned || 0; }), s: ST.sumM }, { f: "SUM(C" + r0 + ":C" + r1 + ")", v: mt.spent, s: ST.sumM }]);
+    if (!urgentOnly()) { sr.push(null); sr.push([{ v: "לפי שלב", s: ST.head }, { v: "צפי", s: ST.head }, { v: "שולם", s: ST.head }]); }
+    if (!urgentOnly()) PHASES.forEach(function (p) { var t = phaseTotals(p[0]); if (t.count) sr.push([{ v: p[1] + " (" + t.done + "/" + t.count + " נקנו)" }, { v: t.cost, s: ST.money }, { v: t.spent, s: ST.money }]); });
     var b = balance();
     if (b.pa || b.pb || S.settlements.length) {
       sr.push(null);
@@ -1017,7 +1032,8 @@ var ACTS = {
   go: function (el) { go(el.dataset.v); },
   close: function () { closeSheet(); },
   "sheet-bg": function (el, ev) { if (ev.target === el) closeSheet(); },
-  "add-item": function (el) { itemSheet(null, el.dataset.room); },
+  "add-item": function (el) { itemSheet(null, el.dataset.room, el.dataset.prio); },
+  scope: function (el) { S.settings.scope = el.dataset.v; save(); render(); },
   "edit-item": function (el) { itemSheet(el.dataset.id); },
   "remove-item": function (el) { removeItem(el.dataset.id); },
   "delete-item": function (el) { deleteItem(el.dataset.id); },
