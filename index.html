@@ -178,7 +178,7 @@ table.t td.n, table.t th.n { text-align: left; }
 
 /* tabs */
 .tabs { position: fixed; z-index: 30; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); max-width: 560px; margin: 0 auto; background: rgba(255, 255, 255, .96); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 22px; padding: 6px; box-shadow: 0 8px 28px rgba(11, 42, 60, .14); }
-.tabs .in { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
+.tabs .in { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
 .tabs button { border: 0; background: none; border-radius: 16px; padding: 6px 2px; min-height: 52px; cursor: pointer; display: grid; justify-items: center; align-content: center; gap: 1px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
 .tabs svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .tabs button[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
@@ -261,7 +261,7 @@ var CHECKLIST = [
   ["gas", "העברת / חיבור גז"], ["net", "הזמנת אינטרנט / העברת ספק"], ["vaad", "פרטי ועד בית"],
   ["ins", "ביטוח תכולה"], ["addr", "שינוי כתובת במשרד הפנים"], ["car", "שינוי כתובת ברישיון רכב"],
   ["kupa", "עדכון כתובת בקופת חולים"], ["bank", "עדכון כתובת בבנק"], ["btl", "עדכון כתובת בביטוח לאומי"],
-  ["mail", "הפניית דואר מהכתובת הישנה"], ["deposit", "תיאום החזרת פיקדון בדירה הישנה"]
+  ["mail", "הפניית דואר מהכתובת הישנה"]
 ];
 
 /* ================= storage ================= */
@@ -438,7 +438,7 @@ function installmentLoad(ym) {
 /* ================= routing ================= */
 var view = "home", showRemoved = false, moveFilter = "all";
 
-var TABS = [["home", "בית", "home"], ["shop", "קניות", "box"], ["check", "משימות", "list"], ["deposits", "פיקדונות", "wallet"], ["reports", "דוחות", "chart"]];
+var TABS = [["home", "בית", "home"], ["shop", "קניות", "box"], ["check", "משימות", "list"], ["reports", "דוחות", "chart"]];
 function renderTabs() {
   var t = $("#tabs");
   t.hidden = !S.setup;
@@ -450,7 +450,7 @@ function renderTabs() {
 function render() {
   var m = $("#main");
   if (!S.setup) { m.innerHTML = renderWelcome(); renderTabs(); return; }
-  var R = { home: renderHome, shop: renderShop, check: renderChecklist, deposits: renderDeposits, reports: renderReports, settings: renderSettings };
+  var R = { home: renderHome, shop: renderShop, check: renderChecklist, reports: renderReports, settings: renderSettings };
   if (!R[view]) view = "home";
   m.innerHTML = R[view]();
   renderTabs();
@@ -621,20 +621,6 @@ function renderChecklist() {
     '<label class="field"><span>גז</span><input type="text" inputmode="decimal" data-meter="gas" value="' + esc(m.gas) + '"></label></section>';
 }
 
-/* ================= deposits ================= */
-function renderDeposits() {
-  var tot = sum(S.deposits.filter(function (d) { return d.status !== "returned"; }), function (d) { return d.amount; });
-  return topbar("פיקדונות וערבויות", "") +
-    '<section class="card"><div class="row spread"><h2>בהמתנה להחזרה</h2><span style="font-size:20px;font-weight:800">' + money(tot) + "</span></div>" +
-    '<p class="hint" style="margin:0">כסף שחוזר בסוף החוזה – לא נספר כהוצאה ולא נכנס לתקציב המעבר.</p>' +
-    (S.deposits.length ? '<div class="list">' + S.deposits.map(function (d) {
-      return '<button class="li" data-act="edit-deposit" data-id="' + d.id + '"><div class="main"><div class="t">' + esc(d.name) + '</div><div class="s">' +
-        (d.status === "returned" ? '<span class="chip done">הוחזר</span>' : d.returnDate ? "החזרה צפויה: " + shortDate(d.returnDate) : "") + (d.note ? " · " + esc(d.note) : "") + "</div></div>" +
-        '<div class="amt">' + money(d.amount) + "</div></button>";
-    }).join("") + "</div>" : '<div class="empty">אין פיקדונות. למשל: פיקדון לבעל הדירה, ערבות בנקאית, שטר חוב.</div>') +
-    '<button class="btn soft" data-act="add-deposit">הוספת פיקדון</button></section>';
-}
-
 /* ================= reports ================= */
 function renderReports() {
   var mt = moveTotals();
@@ -680,7 +666,7 @@ function renderReports() {
     '<div style="display:grid;gap:10px"><span class="label">מה לכלול</span>' +
     '<label class="check"><input type="checkbox" id="x-move" checked><span>רשימת הקניות</span></label>' +
     '<label class="check"><input type="checkbox" id="x-sum" checked><span>סיכום (לפי חדר ושלב, ואיזון)</span></label>' +
-    '<label class="check"><input type="checkbox" id="x-dep" checked><span>פיקדונות</span></label></div>' +
+    "</div>" +
     '<div class="btns"><button class="btn primary" data-act="export-xlsx">הורדת קובץ אקסל</button>' +
     (canShareFiles() ? '<button class="btn soft" data-act="share-xlsx">שליחה (וואטסאפ / מייל)</button>' : "") + "</div>" +
     '<button class="btn link" data-act="export-csv" style="justify-self:start">או ייצוא הקניות ל־CSV</button></section>';
@@ -812,24 +798,6 @@ function deleteItem(id) {
     { label: "מחיקה", cls: "danger", fn: function () { S.items = S.items.filter(function (x) { return x.id !== id; }); save(); render(); toast("הפריט נמחק"); } }
   ]);
 }
-function depositSheet(id) {
-  var dp = id ? S.deposits.find(function (x) { return x.id === id; }) : null, d = dp || { status: "held" };
-  openSheet("<h3>" + (dp ? "עריכת פיקדון" : "פיקדון חדש") + '</h3><form id="f" style="display:grid;gap:12px">' +
-    '<label class="field"><span>תיאור</span><input type="text" name="name" value="' + esc(d.name || "") + '" placeholder="פיקדון לבעל הדירה" required></label>' +
-    '<div class="grid2"><label class="field"><span>סכום</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="amount" value="' + (d.amount != null ? d.amount : "") + '"></div></label>' +
-    '<label class="field"><span>החזרה צפויה</span><input type="date" name="returnDate" value="' + esc(d.returnDate || "") + '"></label></div>' +
-    '<label class="check"><input type="checkbox" name="returned"' + (d.status === "returned" ? " checked" : "") + "><span>הכסף הוחזר</span></label>" +
-    noteField(d.note) + '<button class="btn primary wide" type="submit">שמירה</button>' +
-    (dp ? '<button class="btn danger wide" type="button" data-act="delete-deposit" data-id="' + dp.id + '">מחיקה</button>' : "") + "</form>",
-  function (el) {
-    $("#f", el).onsubmit = function (ev) {
-      ev.preventDefault(); var f = formData(ev.target), rec = dp || { id: uid() };
-      rec.name = f.name.trim(); rec.amount = num(f.amount) || 0; rec.returnDate = f.returnDate; rec.status = f.returned ? "returned" : "held"; rec.note = f.note.trim();
-      if (!dp) S.deposits.push(rec);
-      save(); closeSheet(); render();
-    };
-  });
-}
 function settleSheet() {
   var b = balance(), from = b.diff > 0 ? "b" : "a", to = from === "a" ? "b" : "a";
   openSheet('<h3>סגירת חשבון</h3><form id="f" style="display:grid;gap:12px"><p style="margin:0">' + esc(nameOf(from)) + " מעביר/ה ל" + esc(nameOf(to)) + ":</p>" +
@@ -955,7 +923,7 @@ function buildWorkbook(sheets) {
 function c0ht(sh, ri) { return sh.heights && sh.heights[ri] ? ' ht="' + sh.heights[ri] + '" customHeight="1"' : ""; }
 
 function exportOptions() {
-  return { move: $("#x-move").checked, sum: $("#x-sum").checked, dep: $("#x-dep").checked };
+  return { move: $("#x-move").checked, sum: $("#x-sum").checked };
 }
 function buildExport(o) {
   var gen = "הופק: " + shortDate(today()) + "  ·  " + nameOf("a") + " ו" + nameOf("b") + (S.settings.moveDate ? "  ·  תאריך מעבר: " + shortDate(S.settings.moveDate) : "");
@@ -1016,20 +984,12 @@ function buildExport(o) {
     }
     sheets.push({ name: "סיכום", rows: sr, widths: [40, 15, 15], freeze: 0, merges: ["A1:C1", "A2:C2"], heights: { 0: 24 } });
   }
-  if (o.dep) {
-    var dr = [[{ v: "פיקדונות וערבויות", s: ST.title }], [{ v: gen, s: ST.muted }], null,
-      ["תיאור", "סכום", "החזרה צפויה", "סטטוס", "הערה"].map(function (h) { return { v: h, s: ST.head }; })];
-    S.deposits.forEach(function (d) { dr.push([{ v: d.name }, { v: d.amount || 0, s: ST.money }, { v: d.returnDate ? serial(d.returnDate) : "", s: ST.date }, { v: d.status === "returned" ? "הוחזר" : "בהמתנה" }, { v: d.note || "", s: ST.wrap }]); });
-    var dl = dr.length; dr.push(null);
-    dr.push([{ v: "סה״כ בהמתנה", s: ST.sumL }, { f: 'SUMIF(D5:D' + Math.max(5, dl) + ',"בהמתנה",B5:B' + Math.max(5, dl) + ")", v: sum(S.deposits.filter(function (d) { return d.status !== "returned"; }), function (d) { return d.amount; }), s: ST.sumM }]);
-    sheets.push({ name: "פיקדונות", rows: dr, widths: [30, 13, 14, 12, 34], freeze: 4, merges: ["A1:E1", "A2:E2"], heights: { 0: 24, 3: 22 } });
-  }
   return sheets;
 }
 function exportName() { return "move-budget_" + today() + ".xlsx"; }
 function makeXlsx() {
   var o = exportOptions();
-  if (!o.move && !o.sum && !o.dep) { toast("צריך לבחור לפחות דבר אחד לייצוא"); return null; }
+  if (!o.move && !o.sum) { toast("צריך לבחור לפחות דבר אחד לייצוא"); return null; }
   return { name: exportName(), blob: buildWorkbook(buildExport(o)) };
 }
 
@@ -1058,9 +1018,6 @@ var ACTS = {
   "restore-item": function (el) { var i = S.items.find(function (x) { return x.id === el.dataset.id; }); if (i) { i.removed = false; save(); render(); toast("„" + i.name + "” חזר לרשימה"); } },
   "toggle-removed": function () { showRemoved = !showRemoved; render(); },
   "move-filter": function (el) { moveFilter = el.dataset.v; render(); },
-  "add-deposit": function () { depositSheet(null); },
-  "edit-deposit": function (el) { depositSheet(el.dataset.id); },
-  "delete-deposit": function (el) { var id = el.dataset.id; S.deposits = S.deposits.filter(function (x) { return x.id !== id; }); save(); closeSheet(); render(); },
   settle: settleSheet,
   "export-xlsx": function () { var x = makeXlsx(); if (x) offerFile(x.name, x.blob).then(function (s) { if (s === "saved") toast("הקובץ ירד: " + x.name); }); },
   "share-xlsx": function () {
@@ -1071,7 +1028,7 @@ var ACTS = {
   backup: backup,
   restore: function () { $("#import-file").click(); },
   reset: function () {
-    confirmSheet("למחוק את כל הנתונים?", "כל הפריטים, הקניות, המשימות והפיקדונות יימחקו מהמכשיר. מומלץ לשמור גיבוי לפני.", [
+    confirmSheet("למחוק את כל הנתונים?", "כל הפריטים, הקניות והמשימות יימחקו מהמכשיר. מומלץ לשמור גיבוי לפני.", [
       { label: "שמירת גיבוי קודם", cls: "soft", fn: backup },
       { label: "מחיקה והתחלה מחדש", cls: "danger", fn: function () { S = seed(); save(); view = "home"; render(); } }]);
   },

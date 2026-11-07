@@ -84,7 +84,6 @@ async function richData(p) {
   await buy(p, "מכונת כביסה", 2100);
   await buy(p, "מזרן זוגי", 1900, { payer: "b", inst: 10, date: ymShift(-1) + "-20" });
   await openItem(p, "מייבש כביסה"); await p.click(".sheet [data-act=remove-item]");
-  await tab(p, "deposits"); await p.click("[data-act=add-deposit]"); await p.fill(".sheet [name=name]", "פיקדון לבעל הדירה"); await p.fill(".sheet [name=amount]", "11000"); await submit(p);
 }
 async function download(p, sel) {
   const [d] = await Promise.all([p.waitForEvent("download", { timeout: 4000 }), p.click(sel)]);
@@ -291,7 +290,7 @@ test("BAK-02", "גיבוי", "קובץ לא תקין", "שחזור מקובץ ט
 test("UI-01", "תצוגה", "מסך צר 320px", "מעבר על כל הלשוניות ברוחב 320", "אין גלילה אופקית", async p => {
   await p.setViewportSize({ width: 320, height: 568 });
   await richData(p);
-  for (const v of ["home", "shop", "check", "deposits", "reports"]) {
+  for (const v of ["home", "shop", "check", "reports"]) {
     await tab(p, v);
     const w = await p.evaluate(() => document.documentElement.scrollWidth);
     assert(w <= 320, `${v}: scrollWidth ${w}`);
@@ -310,20 +309,20 @@ test("UI-05", "תצוגה", "ניגודיות טקסט בכרטיס העליון
   for (const bg of [m[1], m[2]]) { const c = contrast(m[3], bg); assert(c >= 4.5, `${m[3]} on ${bg} = ${c.toFixed(2)}:1`); }
 });
 test("UI-07", "תצוגה", "שגיאות JavaScript", "זרימה מלאה עם נתונים לדוגמה בכל הלשוניות", "אין שגיאות בקונסול", async p => {
-  await richData(p); for (const v of ["shop", "check", "deposits", "reports", "home"]) await tab(p, v);
+  await richData(p); for (const v of ["shop", "check", "reports", "home"]) await tab(p, v);
   assert(p.errors.length === 0, p.errors.join(" | "));
 });
 
 /* --- move-only focus --- */
-test("NAV-01", "מבנה", "רק מה שקשור למעבר", "פתיחה ← סקירת הלשוניות וההגדרות", "לשוניות: בית, קניות, משימות, פיקדונות, דוחות. אין חשבונות, הוצאות, שכר דירה, העברות או הוצאות משתנות", async p => {
+test("NAV-01", "מבנה", "רק מה שקשור למעבר", "פתיחה ← סקירת הלשוניות וההגדרות", "לשוניות: בית, קניות, משימות, דוחות. אין חשבונות, הוצאות, שכר דירה, העברות, הוצאות משתנות או פיקדונות", async p => {
   await onboard(p);
   const tabs = await p.$$eval(".tabs button span", x => x.map(e => e.textContent));
-  assert(JSON.stringify(tabs) === JSON.stringify(["בית", "קניות", "משימות", "פיקדונות", "דוחות"]), tabs.join(","));
+  assert(JSON.stringify(tabs) === JSON.stringify(["בית", "קניות", "משימות", "דוחות"]), tabs.join(","));
   const all = [];
-  for (const v of ["home", "shop", "check", "deposits", "reports"]) { await tab(p, v); all.push(await p.textContent("#main")); }
+  for (const v of ["home", "shop", "check", "reports"]) { await tab(p, v); all.push(await p.textContent("#main")); }
   await p.click("[data-act=go][data-v=settings]"); all.push(await p.textContent("#main"));
   const t = all.join(" ");
-  for (const w of ["שכר דירה", "חשבון קבוע", "חשבונות קבועים", "העברות לחשבון המשותף", "הוצאות משתנות", "קטגוריות"]) assert(!t.includes(w), "still mentions: " + w);
+  for (const w of ["שכר דירה", "חשבון קבוע", "חשבונות קבועים", "העברות לחשבון המשותף", "הוצאות משתנות", "קטגוריות", "פיקדון"]) assert(!t.includes(w), "still mentions: " + w);
 });
 test("NAV-02", "מבנה", "כפתור + מוסיף פריט", "בית ← כפתור +", "נפתח טופס 'פריט חדש'", async p => {
   await onboard(p); await p.click("#fab");
@@ -354,23 +353,17 @@ test("MOV-04", "מעבר", "הסרת פריט שכבר שולם", "מכונת כ
   assert(i.removed && i.actual == null, JSON.stringify(i));
   await tab(p, "shop"); assert((await p.$$eval(".stat .v", v => v[2].textContent.replace(/[^\d]/g, ""))) === "0", "spent not 0");
 });
-test("MOV-09", "משימות", "צ׳קליסט נשמר", "משימות ← סימון 2 משימות ← טעינה מחדש", "הסימונים נשארים, המונה מציג 2/15", async p => {
+test("MOV-09", "משימות", "צ׳קליסט נשמר", "משימות ← סימון 2 משימות ← טעינה מחדש", "הסימונים נשארים, המונה מציג 2/14", async p => {
   await onboard(p); await tab(p, "check");
   await p.click("[data-k=meters]"); await p.click("[data-k=arnona]");
   await p.reload(); await tab(p, "check");
-  assert((await p.textContent(".chip.done")).includes("2/15"), await p.textContent(".chip.done"));
+  assert((await p.textContent(".chip.done")).includes("2/14"), await p.textContent(".chip.done"));
 });
 test("MOV-10", "משימות", "קריאת מונים נשמרת", "הזנת קריאת מים 1234 ← טעינה מחדש", "הערך נשמר", async p => {
   await onboard(p); await tab(p, "check");
   await p.fill("[data-meter=water]", "1234"); await p.press("[data-meter=water]", "Tab");
   await p.reload(); await tab(p, "check");
   assert((await p.inputValue("[data-meter=water]")) === "1234", "lost");
-});
-test("MOV-11", "פיקדונות", "פיקדון לא נספר בתקציב", "פיקדונות ← פיקדון 11,000 ← בית", "הפיקדון מוצג בהמתנה; 'שולם' בתקציב המעבר נשאר 0", async p => {
-  await onboard(p); await tab(p, "deposits");
-  await p.click("[data-act=add-deposit]"); await p.fill(".sheet [name=name]", "פיקדון לבעל הדירה"); await p.fill(".sheet [name=amount]", "11000"); await submit(p);
-  assert((await p.textContent("#main")).includes("11,000"), "not shown");
-  await tab(p, "home"); assert((await p.$$eval(".hero .cols b", x => x[1].textContent.replace(/[^\d]/g, ""))) === "0", "deposit counted");
 });
 test("MIG-03", "מעבר", "הוצאות מעבר מגרסה קודמת", "נתונים ישנים עם הוצאה 'מעבר דירה' 600 (הובלה) והוצאת סופר ← טעינה", "ההוצאה הופכת לפריט שנקנה ב'עלויות המעבר' ונספרת בתקציב; הוצאת הסופר לא מוצגת", async p => {
   await onboard(p, { budget: 10000 });
@@ -398,11 +391,11 @@ test("REP-03", "דוחות", "קניות לפי חודש", "נתונים לדו�
   const t = await p.$$eval("section.card", s => s.find(x => x.textContent.includes("קניות לפי חודש")).textContent);
   assert(t.includes("1,900") && t.includes("5,300"), t.replace(/\s+/g, " "));
 });
-test("XLS-01", "אקסל", "ייצוא מלא", "נתונים לדוגמה ← דוחות ← הורדה; חישוב מחדש ב־LibreOffice", "3 גיליונות מימין לשמאל (רשימת קניות, סיכום, פיקדונות); הנוסחאות מחושבות לאותם ערכים שבאפליקציה", async p => {
+test("XLS-01", "אקסל", "ייצוא מלא", "נתונים לדוגמה ← דוחות ← הורדה; חישוב מחדש ב־LibreOffice", "2 גיליונות מימין לשמאל (רשימת קניות, סיכום); הנוסחאות מחושבות לאותם ערכים שבאפליקציה", async p => {
   await richData(p); await tab(p, "reports");
   const f = await download(p, "[data-act=export-xlsx]");
   const x = xlsx(f, false);
-  assert(JSON.stringify(Object.keys(x)) === JSON.stringify(["רשימת קניות", "סיכום", "פיקדונות"]), Object.keys(x).join(","));
+  assert(JSON.stringify(Object.keys(x)) === JSON.stringify(["רשימת קניות", "סיכום"]), Object.keys(x).join(","));
   assert(Object.values(x).every(s => s.rtl), "not RTL");
   const rc = xlsx(f, true);
   const fridge = rc["רשימת קניות"].rows.find(r => r[1] === "מקרר"); assert(fridge[5] === -300, "diff " + fridge[5]);
@@ -411,17 +404,16 @@ test("XLS-01", "אקסל", "ייצוא מלא", "נתונים לדוגמה ← �
   assert(sum.find(r => r[0] === "נשאר מהתקציב")[1] === 32800, "left");
   const roomTot = sum.filter(r => r[0] === "סה״כ")[0]; assert(roomTot[2] === 7200, "room spent " + roomTot[2]);
   assert(sum.find(r => r[0] === "מוצרי חשמל")[2] === 5300, "elec spent");
-  assert(rc["פיקדונות"].rows.find(r => r[0] === "סה״כ בהמתנה")[1] === 11000, "deposits");
 });
-test("XLS-02", "אקסל", "סיכום בלבד", "ביטול 'רשימת הקניות' ו'פיקדונות' ← הורדה", "רק גיליון 'סיכום', עם ערכים נכונים בלי נוסחאות שבורות", async p => {
-  await richData(p); await tab(p, "reports"); await p.uncheck("#x-move"); await p.uncheck("#x-dep");
+test("XLS-02", "אקסל", "סיכום בלבד", "ביטול 'רשימת הקניות' ← הורדה", "רק גיליון 'סיכום', עם ערכים נכונים בלי נוסחאות שבורות", async p => {
+  await richData(p); await tab(p, "reports"); await p.uncheck("#x-move");
   const x = xlsx(await download(p, "[data-act=export-xlsx]"), true);
   assert(JSON.stringify(Object.keys(x)) === '["סיכום"]', Object.keys(x).join(","));
   assert(x["סיכום"].rows.find(r => r[0] === "מוצרי חשמל")[2] === 5300, "values");
 });
 test("XLS-03", "אקסל", "ייצוא בלי תוכן", "ביטול כל הסימונים ← הורדה", "הודעה 'צריך לבחור', אין הורדה", async p => {
   await onboard(p); await tab(p, "reports");
-  for (const id of ["#x-move", "#x-sum", "#x-dep"]) await p.uncheck(id);
+  for (const id of ["#x-move", "#x-sum"]) await p.uncheck(id);
   let got = false; p.once("download", () => { got = true; });
   await p.click("[data-act=export-xlsx]");
   assert((await toast(p, "צריך לבחור")).includes("צריך לבחור") && !got, "no validation");
@@ -433,14 +425,14 @@ test("XLS-04", "אקסל", "ייצוא קניות ל־CSV", "נתונים לדו
   assert(t.trim().split(/\r\n/).length === 4, "rows " + t.trim().split(/\r\n/).length);
   assert(t.includes('"LG, ""מבצע"""'), "quote escaping");
 });
-test("BAK-01", "גיבוי", "גיבוי ושחזור", "נתונים לדוגמה ← שמירת גיבוי ← דפדפן נקי ← שחזור", "כל הנתונים חוזרים (קניות, פריטים שהוסרו, פיקדונות)", async p => {
+test("BAK-01", "גיבוי", "גיבוי ושחזור", "נתונים לדוגמה ← שמירת גיבוי ← דפדפן נקי ← שחזור", "כל הנתונים חוזרים (קניות, פריטים שהוסרו, משימות)", async p => {
   await richData(p); await p.click("[data-act=go][data-v=settings]");
   const f = await download(p, "[data-act=backup]");
   const s1 = await state(p);
   const p2 = await open();
   await p2.setInputFiles("#import-file", f); await p2.click(".sheet .btn.primary");
   const s2 = await state(p2);
-  assert(JSON.stringify(s2.items) === JSON.stringify(s1.items) && s2.deposits.length === 1, "mismatch");
+  assert(JSON.stringify(s2.items) === JSON.stringify(s1.items), "mismatch");
   await p2.context().close();
 });
 test("UI-02", "תצוגה", "סגירת חלון", "פתיחת טופס פריט ← Escape; פתיחה ← לחיצה על הרקע", "החלון נסגר בשני המקרים", async p => {
