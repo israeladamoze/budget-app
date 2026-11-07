@@ -141,11 +141,11 @@ test("ONB-02", "פתיחה", "שמות חובה", "לחיצה על 'מתחילי
   await p.click("#welcome-form button[type=submit]");
   assert(await p.isVisible("#welcome-form"), "left welcome without names");
 });
-test("ONB-03", "פתיחה", "השלמת פתיחה", "מילוי שמות, תאריך, תקציב 45000 ומשתנות 3000", "מסך בית עם ברכה בשמות; 32 פריטי מעבר ו־8 חשבונות ברירת מחדל", async p => {
+test("ONB-03", "פתיחה", "השלמת פתיחה", "מילוי שמות, תאריך, תקציב 45000 ומשתנות 3000", "מסך בית עם ברכה בשמות; 30 פריטי מעבר ו־8 חשבונות ברירת מחדל", async p => {
   await onboard(p, { moveDate: iso(29), budget: 45000, variable: 3000 });
   assert((await p.textContent("h1")).includes("ישראלה") && (await p.textContent("h1")).includes("דני"), "greeting");
   const s = await state(p);
-  assert(s.items.length === 32 && s.bills.length === 8, `items ${s.items.length} bills ${s.bills.length}`);
+  assert(s.items.length === 30 && s.bills.length === 8, `items ${s.items.length} bills ${s.bills.length}`);
   assert(s.settings.moveBudget === 45000 && s.settings.variable === 3000, "settings saved");
 });
 test("ONB-04", "פתיחה", "תקציב עם אגורות", "הזנת תקציב מעבר 45000.50", "הערך נשמר כ־45000.5", async p => {
@@ -259,12 +259,12 @@ test("EXP-11", "הוצאות", "הוצאה בחודש אחר – משוב", "ה�
 });
 
 /* --- move --- */
-test("MOV-01", "מעבר", "קניית פריט", "מקרר ← מחיר בפועל 5200 ← שמירה", "סטטוס 'התקבל', 'שולם' 5,200, מוצג +700 מהתכנון", async p => {
+test("MOV-01", "מעבר", "קניית פריט", "מקרר ← מחיר בפועל 5200 ← שמירה", "סטטוס 'התקבל', 'שולם' 5,200, מוצג +1,700 מהתכנון", async p => {
   await onboard(p, { budget: 45000 }); await openItem(p, "מקרר");
   await p.fill(".sheet [name=actual]", "5200"); await submit(p);
   const s = await state(p), i = s.items.find(x => x.name === "מקרר");
   assert(i.actual === 5200 && i.status === "got", JSON.stringify(i));
-  assert((await p.textContent("#main")).includes("+₪700"), "diff not shown");
+  assert((await p.textContent("#main")).includes("+₪1,700"), "diff not shown");
 });
 test("MOV-02", "מעבר", "מחיר עם אגורות", "מקרר ← מחיר בפועל 2399.90", "המחיר נשמר כ־2399.9", async p => {
   await onboard(p); await openItem(p, "מקרר");
@@ -272,13 +272,13 @@ test("MOV-02", "מעבר", "מחיר עם אגורות", "מקרר ← מחיר 
   const i = (await state(p)).items.find(x => x.name === "מקרר");
   assert(i.actual === 2399.9, "actual=" + i.actual + (await sheetOpen(p) ? " (form blocked by browser validation)" : ""));
 });
-test("MOV-03", "מעבר", "'לא צריך' ושחזור", "מזגן ← לא צריך ← הצגת פריטים שהוסרו ← החזרה", "המזגן יוצא מהצפי (−3000) וחוזר אחרי שחזור", async p => {
+test("MOV-03", "מעבר", "'לא צריך' ושחזור", "מייבש כביסה ← לא צריך ← הצגת פריטים שהוסרו ← החזרה", "המייבש יוצא מהצפי וחוזר אחרי שחזור", async p => {
   await onboard(p);
   const before = await p.evaluate(() => 0);
-  await openItem(p, "מזגן + התקנה"); await p.click(".sheet [data-act=remove-item]");
-  let s = await state(p); assert(s.items.find(x => x.name === "מזגן + התקנה").removed, "not removed");
+  await openItem(p, "מייבש כביסה"); await p.click(".sheet [data-act=remove-item]");
+  let s = await state(p); assert(s.items.find(x => x.name === "מייבש כביסה").removed, "not removed");
   await p.click("[data-act=toggle-removed]"); await p.click("[data-act=restore-item]");
-  s = await state(p); assert(!s.items.find(x => x.name === "מזגן + התקנה").removed, "not restored");
+  s = await state(p); assert(!s.items.find(x => x.name === "מייבש כביסה").removed, "not restored");
 });
 test("MOV-04", "מעבר", "הסרת פריט ששולם – השארה כהוצאה", "מכונת כביסה ← 2300 ← לא צריך ← 'להשאיר כהוצאה כללית'", "נוצרת הוצאה 'מעבר דירה' 2300; 'שולם' ו'צפי כולל' כוללים אותה", async p => {
   await onboard(p, { budget: 45000 }); await openItem(p, "מכונת כביסה");
@@ -291,8 +291,8 @@ test("MOV-04", "מעבר", "הסרת פריט ששולם – השארה כהוצ
   const stats = await p.$$eval(".stat .v", v => v.map(x => x.textContent.replace(/[^\d.]/g, "")));
   const planned = +stats[1], spent = +stats[2];
   assert(spent === 2300, "spent " + spent);
-  // default plan 52,500 − washing machine plan 2,500 + 2,300 actually paid = 52,300
-  assert(planned === 52300, `planned ${planned}, expected 52300 – the 2,300 kept as an expense is missing from the forecast`);
+  // default plan 42,280 − washing machine plan 2,200 + 2,300 actually paid = 42,380
+  assert(planned === 42380, `planned ${planned}, expected 42380 – the 2,300 kept as an expense is missing from the forecast`);
 });
 test("MOV-05", "מעבר", "הסרת פריט ששולם – מחיקת ההוצאה", "מכונת כביסה ← 2300 ← לא צריך ← 'למחוק גם את ההוצאה'", "אין הוצאה, 'שולם' חוזר ל־0", async p => {
   await onboard(p); await openItem(p, "מכונת כביסה");
@@ -343,17 +343,17 @@ test("MOV-12", "מעבר", "מחיר שלילי", "מקרר ← מחיר בפו�
   const i = (await state(p)).items.find(x => x.name === "מקרר"); assert(i.actual == null || i.actual >= 0, "negative saved: " + i.actual);
 });
 
-test("MOV-13", "מעבר", "החזרת פריט דרך 'פריט חדש'", "מזגן ← לא צריך ← חשמל ← + פריט ← בחירת 'מזגן + התקנה' מהרשימה ← שמירה", "הרשימה מציעה את המזגן כ'הוסר'; אחרי השמירה הפריט המקורי חוזר (בלי כפילות) עם התקציב שלו", async p => {
-  await onboard(p); await openItem(p, "מזגן + התקנה"); await p.click(".sheet [data-act=remove-item]");
+test("MOV-13", "מעבר", "החזרת פריט דרך 'פריט חדש'", "מייבש כביסה ← לא צריך ← חשמל ← + פריט ← בחירתו מהרשימה ← שמירה", "הרשימה מציעה את המייבש כ'הוסר'; אחרי השמירה הפריט המקורי חוזר (בלי כפילות) עם התקציב שלו", async p => {
+  await onboard(p); await openItem(p, "מייבש כביסה"); await p.click(".sheet [data-act=remove-item]");
   await tab(p, "move"); await p.click("[data-act=add-item][data-room=elec]");
   const opts = await p.$$eval("#item-suggest option", o => o.map(x => x.value + "|" + x.textContent));
-  assert(opts[0] && opts[0].startsWith("מזגן + התקנה|הוסר"), "removed item not offered first: " + opts.slice(0, 3));
-  await p.fill(".sheet [name=name]", "מזגן + התקנה");
+  assert(opts[0] && opts[0].startsWith("מייבש כביסה|הוסר"), "removed item not offered first: " + opts.slice(0, 3));
+  await p.fill(".sheet [name=name]", "מייבש כביסה");
   assert(await p.isVisible("#restore-hint"), "no restore hint");
-  assert((await p.inputValue(".sheet [name=planned]")) === "3000", "planned not prefilled");
+  assert((await p.inputValue(".sheet [name=planned]")) === "2300", "planned not prefilled");
   await submit(p);
-  const all = (await state(p)).items.filter(x => x.name === "מזגן + התקנה");
-  assert(all.length === 1 && !all[0].removed && all[0].planned === 3000, JSON.stringify(all));
+  const all = (await state(p)).items.filter(x => x.name === "מייבש כביסה");
+  assert(all.length === 1 && !all[0].removed && all[0].planned === 2300, JSON.stringify(all));
 });
 test("MOV-14", "מעבר", "הקלדה חופשית לצד הרשימה", "+ פריט ← הקלדת 'מנורת לילה' שלא ברשימה ← שמירה", "נוצר פריט חדש בשם שהוקלד", async p => {
   await onboard(p); await tab(p, "move"); await p.click("[data-act=add-item][data-room=bedroom]");
@@ -369,17 +369,41 @@ test("MOV-15", "מעבר", "פריט ברירת מחדל שנמחק לצמיתו
   assert((await p.inputValue(".sheet [name=room]")) === "elec" && (await p.inputValue(".sheet [name=planned]")) === "2500", "not prefilled");
 });
 
-test("MOV-16", "מעבר", "הורדת תקציב לפריט", "מקרר: תקציב 4500 ← 3000 ← שמירה", "הצפי הכולל יורד ב־1,500", async p => {
+test("MOV-16", "מעבר", "הורדת תקציב לפריט", "מקרר: תקציב 3500 ← 3000 ← שמירה", "הצפי הכולל יורד ב־500", async p => {
   await onboard(p); await tab(p, "move");
   const before = +(await p.$$eval(".stat .v", v => v[1].textContent.replace(/[^\d]/g, "")));
   await openItem(p, "מקרר"); await p.fill(".sheet [name=planned]", "3000"); await submit(p);
   const after = +(await p.$$eval(".stat .v", v => v[1].textContent.replace(/[^\d]/g, "")));
-  assert(before - after === 1500, `before ${before} after ${after}`);
+  assert(before - after === 500, `before ${before} after ${after}`);
 });
 test("MOV-17", "מעבר", "תקציב לפריט שכבר נקנה", "מקרר: מחיר בפועל 5200 ← פתיחה מחדש", "מוצג הסבר שהצפי מחושב לפי המחיר בפועל; ההסבר נעלם כשמוחקים את המחיר", async p => {
   await onboard(p); await openItem(p, "מקרר"); await p.fill(".sheet [name=actual]", "5200"); await submit(p);
   await openItem(p, "מקרר"); assert(await p.isVisible("#plan-hint"), "no hint");
   await p.fill(".sheet [name=actual]", ""); assert(await p.isHidden("#plan-hint"), "hint stays");
+});
+
+test("MIG-01", "מעבר", "עדכון לרשימה החדשה בנתונים קיימים", "נתונים בגרסה הקודמת: תנור נקנה, כורסה שנוספה ידנית ← מעבר ← עדכון הרשימה", "תנור וכורסה נשארים; שואב אבק יוצא; בר מים נוסף; מקרר 3,500; אין כפילויות והבאנר נעלם", async p => {
+  await onboard(p);
+  await setState(p, s => {
+    const mk = (room, name, planned, extra) => Object.assign({ id: Math.random().toString(36).slice(2), room, name, prio: "now", planned, actual: null, status: "todo", payer: "j", method: "אשראי", inst: 1, date: "", warranty: "", note: "", store: "", removed: false }, extra || {});
+    s.items = [mk("elec", "מקרר", 4500), mk("elec", "תנור / כיריים", 3000, { actual: 2800, status: "got", date: "2026-11-01" }), mk("elec", "שואב אבק", 1200),
+      mk("elec", "מזגן + התקנה", 3000, { removed: true }), mk("living", "כורסה", 1800), mk("move", "הובלה", 2500)];
+    delete s.meta.listVer;
+  });
+  await tab(p, "move");
+  assert(await p.isVisible("[data-act=upgrade-list]"), "no upgrade banner");
+  await p.click(".banner [data-act=upgrade-list]"); await p.click(".sheet .btn.primary");
+  const it = (await state(p)).items, names = it.map(i => i.name);
+  assert(names.includes("תנור / כיריים") && names.includes("כורסה"), "kept items lost");
+  assert(!names.includes("שואב אבק") && !names.includes("מזגן + התקנה"), "old defaults not removed");
+  assert(names.includes("בר מים") && it.find(i => i.name === "מקרר").planned === 3500, "new list not applied");
+  assert(new Set(names).size === names.length, "duplicates: " + names.filter((n, i) => names.indexOf(n) !== i));
+  assert(!(await p.isVisible(".banner [data-act=upgrade-list]")), "banner stays");
+});
+test("MIG-02", "מעבר", "משתמש חדש", "פתיחה ראשונה ← מעבר", "אין באנר עדכון; הרשימה כבר החדשה (מזנון לטלוויזיה, חדר נוסף / עבודה)", async p => {
+  await onboard(p); await tab(p, "move");
+  assert(!(await p.isVisible(".banner [data-act=upgrade-list]")), "banner for new user");
+  const t = await p.textContent("#main"); assert(t.includes("מזנון לטלוויזיה") && t.includes("חדר נוסף / עבודה"), "new list missing");
 });
 
 /* --- bills --- */
@@ -520,7 +544,7 @@ test("XLS-01", "אקסל", "ייצוא מלא", "נתונים לדוגמה ← �
   const sumTot = rc["סיכום"].rows.find(r => r[0] === "סה״כ הוצאות");
   assert(Math.abs(sumTot[1] - 11210) < .01, "summary total " + sumTot[1]);
   const fridge = rc["מעבר דירה"].rows.find(r => r[1] === "מקרר");
-  assert(fridge[5] === 700, "diff formula " + fridge[5]);
+  assert(fridge[5] === 1700, "diff formula " + fridge[5]);
 });
 test("XLS-02", "אקסל", "ייצוא חודש אחד", "טווח 'החודש שנבחר' ← הורדה", "רק הוצאות החודש הנוכחי (בלי ה־90 מהחודש הקודם)", async p => {
   await richData(p); await tab(p, "reports"); await p.selectOption("#x-range", "month");

@@ -222,7 +222,7 @@ var KEY = "budget.v1";
 var MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 var MONTHS_S = ["ינו׳", "פבר׳", "מרץ", "אפר׳", "מאי", "יוני", "יולי", "אוג׳", "ספט׳", "אוק׳", "נוב׳", "דצמ׳"];
 var ROOMS = [
-  ["elec", "מוצרי חשמל"], ["bedroom", "חדר שינה"], ["living", "סלון ופינת אוכל"], ["kitchen", "מטבח"],
+  ["elec", "מוצרי חשמל"], ["living", "סלון ופינת אוכל"], ["bedroom", "חדר שינה"], ["second", "חדר נוסף / עבודה"], ["kitchen", "מטבח"],
   ["bath", "אמבטיה וכביסה"], ["home", "כללי לבית"], ["move", "עלויות המעבר"]
 ];
 var ROOM = {}; ROOMS.forEach(function (r) { ROOM[r[0]] = r[1]; });
@@ -234,22 +234,28 @@ var DEFAULT_CATS = ["מעבר דירה", "שכר דירה", "ארנונה", "מ�
   "סופר ובית", "תחבורה", "מנויים", "תיקונים ותחזוקה", "בילויים ואוכל בחוץ", "אחר"];
 var MOVE_CAT = "מעבר דירה";
 
+/* shopping list v2 – the couple's final list (phase 1 = now, phase 2 = later), top of each price range */
 var DEFAULT_ITEMS = [
-  ["elec", "מקרר", "now", 4500], ["elec", "מכונת כביסה", "now", 2500], ["elec", "תנור / כיריים", "now", 3000],
-  ["elec", "נתב / ציוד רשת", "now", 300], ["elec", "מיקרוגל", "month", 500], ["elec", "שואב אבק", "month", 1200],
-  ["elec", "קומקום, טוסטר, מכונת קפה", "month", 800], ["elec", "מייבש כביסה", "later", 2200],
-  ["elec", "מדיח כלים", "later", 2500], ["elec", "מזגן + התקנה", "later", 3000], ["elec", "טלוויזיה", "later", 2500],
-  ["bedroom", "מיטה + מזרן", "now", 5000], ["bedroom", "מצעים, שמיכות וכריות", "now", 1200], ["bedroom", "ארון בגדים", "month", 3000],
-  ["living", "ספה", "month", 4500], ["living", "שולחן אוכל + כיסאות", "month", 2500], ["living", "וילונות / תריסים", "month", 1500],
-  ["living", "תאורה ומנורות", "month", 800], ["living", "שולחן עבודה + כיסא", "later", 1500], ["living", "שטיחים, מראות ומדפים", "later", 1000],
-  ["kitchen", "כלי מטבח, סירים וסכו״ם", "now", 1500],
-  ["bath", "מגבות ואביזרי אמבטיה", "now", 400], ["bath", "ציוד ניקיון ופחים", "now", 500],
-  ["home", "כלי עבודה בסיסיים", "month", 300],
+  ["elec", "מקרר", "now", 3500], ["living", "ספה", "now", 4000], ["bedroom", "מיטה זוגית", "now", 1600],
+  ["bedroom", "מזרן זוגי", "now", 1800], ["elec", "מכונת כביסה", "now", 2200], ["living", "שולחן סלון", "now", 800],
+  ["living", "מזנון לטלוויזיה", "now", 1300],
+  ["elec", "מדיח כלים", "month", 2800], ["elec", "בר מים", "month", 2500], ["living", "שולחן אוכל", "month", 1200],
+  ["living", "כיסאות לפינת אוכל", "month", 1000], ["elec", "מיקרוגל", "month", 600], ["elec", "קומקום חשמלי", "month", 180],
+  ["elec", "טלוויזיה", "later", 2500], ["bedroom", "שידות לילה – זוג", "later", 700], ["bedroom", "שידת מגירות", "later", 800],
+  ["second", "ארון בגדים לחדר השני", "later", 2500], ["second", "מיטה / ספה נפתחת", "later", 2000],
+  ["second", "שולחן עבודה", "later", 800], ["second", "כיסא עבודה", "later", 600], ["second", "שידת אחסון", "later", 800],
+  ["elec", "מייבש כביסה", "later", 2300],
   ["move", "הובלה", "now", 2500], ["move", "קרטונים וחומרי אריזה", "now", 300], ["move", "ניקיון יסודי", "now", 600],
   ["move", "צבע ותיקונים בדירה הישנה", "now", 1000], ["move", "דמי תיווך (אם יש)", "now", 0],
   ["move", "החלפת מנעול / שכפול מפתחות", "now", 300], ["move", "אוכל בחוץ בימים הראשונים", "now", 500],
   ["move", "התקנות (מנורות, מדפים, מכונה)", "month", 600]
 ];
+var LIST_VER = 2;
+/* names of the first default list, to recognise untouched defaults when upgrading */
+var LEGACY_V1 = ["מקרר", "מכונת כביסה", "תנור / כיריים", "נתב / ציוד רשת", "מיקרוגל", "שואב אבק", "קומקום, טוסטר, מכונת קפה", "מייבש כביסה",
+  "מדיח כלים", "מזגן + התקנה", "טלוויזיה", "מיטה + מזרן", "מצעים, שמיכות וכריות", "ארון בגדים", "ספה", "שולחן אוכל + כיסאות",
+  "וילונות / תריסים", "תאורה ומנורות", "שולחן עבודה + כיסא", "שטיחים, מראות ומדפים", "כלי מטבח, סירים וסכו״ם",
+  "מגבות ואביזרי אמבטיה", "ציוד ניקיון ופחים", "כלי עבודה בסיסיים"];
 var DEFAULT_BILLS = [
   ["שכר דירה", "שכר דירה", 1, "הוראת קבע"], ["ארנונה", "ארנונה", 2, "הוראת קבע"], ["מים", "מים", 2, "אשראי"],
   ["חשמל", "חשמל", 2, "אשראי"], ["גז", "גז", 0, "אשראי"], ["ועד בית", "ועד בית", 1, "מזומן"],
@@ -270,11 +276,11 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 function seed() {
   return {
     v: 1, setup: false,
-    settings: { nameA: "", nameB: "", moveDate: "", moveBudget: 50000, variable: 0, cats: DEFAULT_CATS.slice() },
+    settings: { nameA: "", nameB: "", moveDate: "", moveBudget: 42500, variable: 0, cats: DEFAULT_CATS.slice() },
     items: DEFAULT_ITEMS.map(function (x) { return { id: uid(), room: x[0], name: x[1], prio: x[2], planned: x[3], actual: null, status: "todo", store: "", payer: "j", method: "אשראי", inst: 1, date: "", warranty: "", note: "", removed: false }; }),
     bills: DEFAULT_BILLS.map(function (x) { return { id: uid(), name: x[0], cat: x[1], freq: x[2], amount: null, nextDue: "", method: x[3], payer: "j", endDate: "", note: "", active: true }; }),
     expenses: [], deposits: [], settlements: [], transfers: [], checklist: {}, meters: { water: "", elec: "", gas: "", date: "" },
-    meta: { lastBackup: null }
+    meta: { lastBackup: null, listVer: LIST_VER }
   };
 }
 function normalize(o) {
@@ -310,6 +316,26 @@ function save() {
   catch (e) { storageOK = false; toast("לא ניתן לשמור במכשיר. מומלץ להוריד גיבוי."); }
 }
 try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+
+function newItem(x) { return { id: uid(), room: x[0], name: x[1], prio: x[2], planned: x[3], actual: null, status: "todo", store: "", payer: "j", method: "אשראי", inst: 1, date: "", warranty: "", note: "", removed: false }; }
+/* replace untouched default items with the current list; bought items and the couple's own items stay */
+function upgradeList() {
+  var defs = {}, done = {}, added = 0, removed = 0, updated = 0;
+  DEFAULT_ITEMS.forEach(function (x) { defs[x[1]] = x; });
+  S.items = S.items.filter(function (i) {
+    var bought = i.actual != null;
+    if (defs[i.name]) {
+      done[i.name] = 1;
+      if (!bought) { var x = defs[i.name]; i.room = x[0]; i.prio = x[2]; i.planned = x[3]; i.removed = false; updated++; }
+      return true;
+    }
+    if (LEGACY_V1.indexOf(i.name) >= 0 && !bought) { removed++; return false; }
+    return true;
+  });
+  DEFAULT_ITEMS.forEach(function (x) { if (!done[x[1]]) { S.items.push(newItem(x)); added++; } });
+  S.meta.listVer = LIST_VER; save();
+  return { added: added, removed: removed, updated: updated };
+}
 
 /* ================= helpers ================= */
 function $(s, r) { return (r || document).querySelector(s); }
@@ -608,6 +634,9 @@ function renderMove() {
     '<button data-act="move-tab" data-v="deposits" aria-pressed="' + (moveTab === "deposits") + '">פיקדונות</button></div>';
   if (moveTab === "check") return h + renderChecklist();
   if (moveTab === "deposits") return h + renderDeposits();
+  if ((S.meta.listVer || 1) < LIST_VER)
+    h += '<div class="banner info"><span>יש רשימת קניות מעודכנת: שלב ראשון ושלב שני לפי התקציב החדש. פריטים שכבר קניתם ופריטים שהוספתם בעצמכם יישארו.</span>' +
+      '<div class="btns" style="width:100%"><button class="btn sm primary" data-act="upgrade-list">עדכון הרשימה</button><button class="btn sm" data-act="dismiss-list">לא עכשיו</button></div></div>';
 
   var pct = mt.budget ? Math.min(100, mt.spent / mt.budget * 100) : 0;
   h += '<section class="card"><div class="stats"><div class="stat"><div class="v">' + money(mt.budget) + '</div><div class="k">תקציב</div></div>' +
@@ -797,6 +826,7 @@ function renderSettings() {
     '<section class="card"><h2>קטגוריות</h2><div class="row">' + s.cats.map(function (c, i) {
       return '<span class="chip" style="font-size:13px;padding:4px 10px">' + esc(c) + (DEFAULT_CATS.indexOf(c) < 0 ? ' <button class="btn link" style="color:var(--bad)" data-act="del-cat" data-i="' + i + '" aria-label="מחיקה">×</button>' : "") + "</span>";
     }).join("") + '</div><div class="row"><input type="text" id="new-cat" placeholder="קטגוריה חדשה" class="grow" style="flex:1"><button class="btn soft" data-act="add-cat">הוספה</button></div></section>' +
+    '<section class="card"><h2>רשימת הקניות המומלצת</h2><p class="hint" style="margin:0">טעינה מחדש של רשימת הקניות לפי שלב ראשון ושני. פריטים שכבר קניתם ופריטים שהוספתם בעצמכם יישארו.</p><button class="btn soft" data-act="upgrade-list">טעינת הרשימה</button></section>' +
     '<section class="card"><h2>גיבוי ושיתוף</h2><p class="hint" style="margin:0">הנתונים נשמרים בטלפון הזה בלבד. כדי לשתף את בן/בת הזוג או לעבור טלפון – שומרים גיבוי, שולחים את הקובץ, ומשחזרים בטלפון השני.' +
     (S.meta.lastBackup ? " גיבוי אחרון: " + shortDate(S.meta.lastBackup) + "." : "") + "</p>" +
     '<div class="btns"><button class="btn soft" data-act="backup">שמירת גיבוי</button><button class="btn" data-act="restore">שחזור מגיבוי</button></div></section>' +
@@ -1299,6 +1329,14 @@ var ACTS = {
       { label: "שמירת גיבוי קודם", cls: "soft", fn: backup },
       { label: "מחיקה והתחלה מחדש", cls: "danger", fn: function () { S = seed(); save(); view = "home"; render(); } }]);
   },
+  "upgrade-list": function () {
+    confirmSheet("לעדכן את רשימת הקניות?", "פריטי ברירת מחדל שעוד לא נקנו יוחלפו ברשימה המעודכנת (שלב ראשון – חובה מיד, שלב שני – בהמשך). פריטים שכבר קניתם, פריטים שהוספתם ועלויות המעבר יישארו.", [
+      { label: "עדכון הרשימה", cls: "primary", fn: function () {
+        var r = upgradeList(); view = "move"; moveTab = "items"; render();
+        toast("הרשימה עודכנה: " + r.added + " נוספו, " + r.updated + " עודכנו, " + r.removed + " הוסרו");
+      } }]);
+  },
+  "dismiss-list": function () { S.meta.listVer = LIST_VER; save(); render(); },
   "add-cat": function () {
     var v = $("#new-cat").value.trim(); if (!v) return;
     if (S.settings.cats.indexOf(v) >= 0) { toast("הקטגוריה כבר קיימת"); return; }
