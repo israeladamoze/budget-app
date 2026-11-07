@@ -67,36 +67,24 @@ async function toast(p, sub) {
   const t = await p.$(".toast"); return t ? (await t.textContent()).trim() : "";
 }
 async function sheetOpen(p) { return !!(await p.$(".sheet")); }
-async function addExpense(p, e) {
-  await tab(p, "expenses");
-  await p.click("#fab");
-  if (e.amount !== undefined) await p.fill(".sheet [name=amount]", String(e.amount));
-  if (e.cat) await p.selectOption(".sheet [name=cat]", e.cat);
-  if (e.date) await p.fill(".sheet [name=date]", e.date);
-  if (e.payer) await p.selectOption(".sheet [name=payer]", e.payer);
-  if (e.method) await p.selectOption(".sheet [name=method]", e.method);
-  if (e.inst !== undefined) await p.fill(".sheet [name=inst]", String(e.inst));
-  if (e.note !== undefined) await p.fill(".sheet [name=note]", e.note);
+async function openItem(p, name) { await tab(p, "shop"); await p.click(`.li[data-act=edit-item] .t:text-is("${name}")`); }
+async function buy(p, name, actual, o = {}) {
+  await openItem(p, name); await p.fill(".sheet [name=actual]", String(actual));
+  if (o.payer || o.inst || o.date || o.method) await p.click(".sheet summary").catch(() => {});
+  if (o.date) await p.fill(".sheet [name=date]", o.date);
+  if (o.payer) await p.selectOption(".sheet [name=payer]", o.payer);
+  if (o.method) await p.selectOption(".sheet [name=method]", o.method);
+  if (o.inst) await p.fill(".sheet [name=inst]", String(o.inst));
+  if (o.note !== undefined) await p.fill(".sheet [name=note]", o.note);
   await submit(p);
 }
-async function openItem(p, name) { await tab(p, "move"); await p.click(`.li[data-act=edit-item] .t:text-is("${name}")`); }
-async function openBill(p, name) { await tab(p, "bills"); await p.click(`.li[data-act=edit-bill] .t:text-is("${name}")`); }
-async function setBill(p, name, f) {
-  await openBill(p, name);
-  for (const [k, v] of Object.entries(f)) {
-    if (k === "freq" || k === "payer") await p.selectOption(`.sheet [name=${k}]`, String(v));
-    else if (k === "active") await p.setChecked(".sheet [name=active]", v);
-    else await p.fill(`.sheet [name=${k}]`, String(v));
-  }
-  await submit(p);
-}
-async function payBill(p, name, amount, note) {
-  await tab(p, "bills");
-  const row = p.locator(".li[data-act=edit-bill]", { has: p.locator(`.t:text-is("${name}")`) });
-  await row.locator("[data-act=pay-bill]").click();
-  if (amount !== undefined) await p.fill(".sheet [name=amount]", String(amount));
-  if (note) await p.fill(".sheet [name=note]", note);
-  await submit(p);
+async function richData(p) {
+  await onboard(p, { budget: 40000, moveDate: iso(24) });
+  await buy(p, "מקרר", 3200, { payer: "a", note: "LG, \"מבצע\"" });
+  await buy(p, "מכונת כביסה", 2100);
+  await buy(p, "מזרן זוגי", 1900, { payer: "b", inst: 10, date: ymShift(-1) + "-20" });
+  await openItem(p, "מייבש כביסה"); await p.click(".sheet [data-act=remove-item]");
+  await tab(p, "deposits"); await p.click("[data-act=add-deposit]"); await p.fill(".sheet [name=name]", "פיקדון לבעל הדירה"); await p.fill(".sheet [name=amount]", "11000"); await submit(p);
 }
 async function download(p, sel) {
   const [d] = await Promise.all([p.waitForEvent("download", { timeout: 4000 }), p.click(sel)]);
@@ -141,12 +129,13 @@ test("ONB-02", "פתיחה", "שמות חובה", "לחיצה על 'מתחילי
   await p.click("#welcome-form button[type=submit]");
   assert(await p.isVisible("#welcome-form"), "left welcome without names");
 });
-test("ONB-03", "פתיחה", "השלמת פתיחה", "מילוי שמות, תאריך, תקציב 45000 ומשתנות 3000", "מסך בית עם ברכה בשמות; 30 פריטי מעבר ו־8 חשבונות ברירת מחדל", async p => {
-  await onboard(p, { moveDate: iso(29), budget: 45000, variable: 3000 });
+test("ONB-03", "פתיחה", "השלמת פתיחה", "מילוי שמות, תאריך מעבר ותקציב 45000", "מסך בית עם ברכה בשמות וספירה לאחור; 30 פריטים ברשימת הקניות; אין חשבונות", async p => {
+  await onboard(p, { moveDate: iso(29), budget: 45000 });
   assert((await p.textContent("h1")).includes("ישראלה") && (await p.textContent("h1")).includes("דני"), "greeting");
   const s = await state(p);
-  assert(s.items.length === 30 && s.bills.length === 8, `items ${s.items.length} bills ${s.bills.length}`);
-  assert(s.settings.moveBudget === 45000 && s.settings.variable === 3000, "settings saved");
+  assert(s.items.length === 30 && s.bills.length === 0, `items ${s.items.length} bills ${s.bills.length}`);
+  assert(s.settings.moveBudget === 45000, "settings saved");
+  assert(!(await p.$("[name=variable]")), "variable field still exists");
 });
 test("ONB-04", "פתיחה", "תקציב עם אגורות", "הזנת תקציב מעבר 45000.50", "הערך נשמר כ־45000.5", async p => {
   await onboard(p, { budget: "45000.50" });
@@ -161,101 +150,12 @@ test("SET-01", "הגדרות", "עדכון שמות", "הגדרות ← שינו
   await tab(p, "home");
   assert((await p.textContent("h1")).includes("יעל"), "name not updated");
 });
-test("SET-02", "הגדרות", "הוספת קטגוריה", "הוספת 'חיות מחמד', ואז הוספה חוזרת של אותו שם", "הקטגוריה מופיעה בטופס ההוצאה; כפילות נדחית עם הודעה", async p => {
-  await onboard(p);
-  await p.click("[data-act=go][data-v=settings]");
-  await p.fill("#new-cat", "חיות מחמד"); await p.click("[data-act=add-cat]");
-  await p.fill("#new-cat", "חיות מחמד"); await p.click("[data-act=add-cat]");
-  assert((await toast(p, "כבר קיימת")).includes("כבר קיימת"), "no duplicate warning");
-  const s = await state(p);
-  assert(s.settings.cats.filter(c => c === "חיות מחמד").length === 1, "duplicate saved");
-  await tab(p, "expenses"); await p.click("#fab");
-  assert((await p.$$eval(".sheet [name=cat] option", o => o.map(x => x.textContent))).includes("חיות מחמד"), "not in dropdown");
-});
-test("SET-03", "הגדרות", "מחיקת קטגוריה בשימוש", "הוספת קטגוריה, רישום הוצאה בה, מחיקת הקטגוריה, פתיחת ההוצאה ושמירה", "ההוצאה שומרת על הקטגוריה המקורית שלה", async p => {
-  await onboard(p);
-  await p.click("[data-act=go][data-v=settings]");
-  await p.fill("#new-cat", "חיות מחמד"); await p.click("[data-act=add-cat]");
-  await addExpense(p, { amount: 200, cat: "חיות מחמד", note: "וטרינר" });
-  await p.click("[data-act=go][data-v=settings]");
-  await p.click("[data-act=del-cat]");
-  if (await sheetOpen(p)) await p.click(".sheet .btn.danger");
-  await tab(p, "expenses");
-  await p.click(".li[data-act=edit-expense]");
-  await submit(p);
-  const s = await state(p);
-  assert(s.expenses[0].cat === "חיות מחמד", "category silently changed to " + s.expenses[0].cat);
-});
 test("SET-04", "הגדרות", "איפוס", "הגדרות ← איפוס ← מחיקה והתחלה מחדש", "חוזרים למסך פתיחה, ההוצאות נמחקו", async p => {
-  await onboard(p); await addExpense(p, { amount: 50 });
+  await onboard(p); await buy(p, "מקרר", 3000);
   await p.click("[data-act=go][data-v=settings]"); await p.click("[data-act=reset]");
   await p.click(".sheet .btn.danger");
   assert(await p.isVisible("#welcome-form"), "not back to welcome");
-  const s = await state(p); assert(s.expenses.length === 0, "expenses kept");
-});
-
-/* --- expenses --- */
-test("EXP-01", "הוצאות", "הוספת הוצאה", "כפתור + ← 420 ₪, סופר ובית, הערה ← שמירה", "ההוצאה מופיעה ברשימה והסכום החודשי 420", async p => {
-  await onboard(p);
-  await addExpense(p, { amount: 420, cat: "סופר ובית", note: "קניות לבית החדש" });
-  assert((await p.textContent("#exp-list")).includes("קניות לבית החדש"), "not listed");
-  assert((await p.textContent("#exp-list .card")).includes("420"), "total");
-});
-test("EXP-02", "הוצאות", "סכום חסר או אפס", "שמירת הוצאה בלי סכום, ואז עם 0", "ההוצאה לא נשמרת", async p => {
-  await onboard(p);
-  await addExpense(p, {});
-  await p.fill(".sheet [name=amount]", "0"); await submit(p);
-  const s = await state(p); assert(s.expenses.length === 0, "saved invalid expense");
-});
-test("EXP-03", "הוצאות", "סכום עשרוני", "הוצאה של 12.90", "נשמר 12.9 ומוצג ₪12.9", async p => {
-  await onboard(p); await addExpense(p, { amount: "12.90" });
-  const s = await state(p); assert(s.expenses[0] && s.expenses[0].amount === 12.9, "amount " + JSON.stringify(s.expenses));
-});
-test("EXP-04", "הוצאות", "עריכת הוצאה", "פתיחת הוצאה ← שינוי סכום ל־500 והערה ← שמירה", "הסכום וההערה מתעדכנים, אין הוצאה כפולה", async p => {
-  await onboard(p); await addExpense(p, { amount: 100, note: "א" });
-  await p.click(".li[data-act=edit-expense]");
-  await p.fill(".sheet [name=amount]", "500"); await p.fill(".sheet [name=note]", "ב");
-  await submit(p);
-  const s = await state(p); assert(s.expenses.length === 1 && s.expenses[0].amount === 500 && s.expenses[0].note === "ב", JSON.stringify(s.expenses));
-});
-test("EXP-05", "הוצאות", "מחיקת הוצאה", "פתיחת הוצאה ← מחיקה ← אישור", "ההוצאה נמחקת אחרי אישור בלבד", async p => {
-  await onboard(p); await addExpense(p, { amount: 100 });
-  await p.click(".li[data-act=edit-expense]"); await p.click(".sheet [data-act=delete-expense]");
-  assert((await state(p)).expenses.length === 1, "deleted before confirm");
-  await p.click(".sheet .btn.danger");
-  assert((await state(p)).expenses.length === 0, "not deleted");
-});
-test("EXP-06", "הוצאות", "חיפוש בכל החודשים", "הוצאה בחודש קודם עם הערה 'וטרינר' ← חיפוש 'וטרינר'", "ההוצאה נמצאת למרות שהיא בחודש אחר", async p => {
-  await onboard(p); await addExpense(p, { amount: 80, date: ymShift(-2) + "-10", note: "וטרינר" });
-  await p.fill("#exp-q", "וטרינר");
-  assert((await p.textContent("#exp-list")).includes("וטרינר"), "not found");
-});
-test("EXP-07", "הוצאות", "סינון קטגוריה", "שתי הוצאות בקטגוריות שונות ← סינון לחשמל", "מוצגת רק הוצאת החשמל", async p => {
-  await onboard(p); await addExpense(p, { amount: 80, cat: "חשמל", note: "חשמל1" }); await addExpense(p, { amount: 90, cat: "מים", note: "מים1" });
-  await p.selectOption("#exp-cat", "חשמל");
-  const t = await p.textContent("#exp-list"); assert(t.includes("חשמל1") && !t.includes("מים1"), "filter failed: " + t.replace(/\s+/g, " ").slice(0, 160));
-});
-test("EXP-08", "הוצאות", "ניווט בין חודשים", "הוצאה בתאריך בחודש הקודם ← מעבר בין החודשים", "ההוצאה מופיעה רק בחודש שלה", async p => {
-  await onboard(p); await addExpense(p, { amount: 70, date: ymShift(-1) + "-15", note: "קודם" });
-  await p.click("[data-act=go][data-v=home]"); await tab(p, "expenses");
-  await p.click("[data-act=exp-month][data-d='1']");
-  assert(!(await p.textContent("#exp-list")).includes("קודם"), "visible in the following month");
-  await p.click("[data-act=exp-month][data-d='-1']");
-  assert((await p.textContent("#exp-list")).includes("קודם"), "not in its own month");
-});
-test("EXP-09", "הוצאות", "תקרת תשלומים", "הזנת 100 תשלומים (המקסימום בשדה 36)", "הערך נדחה או מוגבל ל־36", async p => {
-  await onboard(p); await addExpense(p, { amount: 1000, inst: 100 });
-  const s = await state(p); assert(!s.expenses[0] || s.expenses[0].inst <= 36, "inst=" + (s.expenses[0] && s.expenses[0].inst));
-});
-test("EXP-10", "הוצאות", "הגנה מהזרקת קוד", "הערה: <img src=x onerror=window.__x=1>", "הטקסט מוצג כמו שהוא ולא מורץ", async p => {
-  await onboard(p); await addExpense(p, { amount: 5, note: "<img src=x onerror=window.__x=1>" });
-  await tab(p, "home");
-  assert(!(await p.evaluate(() => window.__x)), "script executed");
-  assert((await p.textContent("#main")).includes("<img src=x"), "text not shown");
-});
-test("EXP-11", "הוצאות", "הוצאה בחודש אחר – משוב", "הוספת הוצאה עם תאריך בחודש קודם מתוך מסך ההוצאות", "המסך עובר לחודש של ההוצאה כדי שאפשר יהיה לראות אותה", async p => {
-  await onboard(p); await addExpense(p, { amount: 70, date: ymShift(-1) + "-15", note: "קודם" });
-  assert((await p.textContent("#exp-list")).includes("קודם"), "expense saved but not visible – user sees nothing changed");
+  const s = await state(p); assert(!s.items.some(i => i.actual != null), "purchases kept");
 });
 
 /* --- move --- */
@@ -280,33 +180,12 @@ test("MOV-03", "מעבר", "'לא צריך' ושחזור", "מייבש כביס�
   await p.click("[data-act=toggle-removed]"); await p.click("[data-act=restore-item]");
   s = await state(p); assert(!s.items.find(x => x.name === "מייבש כביסה").removed, "not restored");
 });
-test("MOV-04", "מעבר", "הסרת פריט ששולם – השארה כהוצאה", "מכונת כביסה ← 2300 ← לא צריך ← 'להשאיר כהוצאה כללית'", "נוצרת הוצאה 'מעבר דירה' 2300; 'שולם' ו'צפי כולל' כוללים אותה", async p => {
-  await onboard(p, { budget: 45000 }); await openItem(p, "מכונת כביסה");
-  await p.fill(".sheet [name=actual]", "2300"); await submit(p);
-  const planned0 = await p.evaluate(() => 0);
-  await openItem(p, "מכונת כביסה"); await p.click(".sheet [data-act=remove-item]"); await p.click(".sheet [data-cb='0']");
-  const s = await state(p);
-  assert(s.expenses.length === 1 && s.expenses[0].amount === 2300 && s.expenses[0].cat === "מעבר דירה", "expense not created");
-  await tab(p, "move");
-  const stats = await p.$$eval(".stat .v", v => v.map(x => x.textContent.replace(/[^\d.]/g, "")));
-  const planned = +stats[1], spent = +stats[2];
-  assert(spent === 2300, "spent " + spent);
-  // default plan 42,280 − washing machine plan 2,200 + 2,300 actually paid = 42,380
-  assert(planned === 42380, `planned ${planned}, expected 42380 – the 2,300 kept as an expense is missing from the forecast`);
-});
-test("MOV-05", "מעבר", "הסרת פריט ששולם – מחיקת ההוצאה", "מכונת כביסה ← 2300 ← לא צריך ← 'למחוק גם את ההוצאה'", "אין הוצאה, 'שולם' חוזר ל־0", async p => {
-  await onboard(p); await openItem(p, "מכונת כביסה");
-  await p.fill(".sheet [name=actual]", "2300"); await submit(p);
-  await openItem(p, "מכונת כביסה"); await p.click(".sheet [data-act=remove-item]"); await p.click(".sheet [data-cb='1']");
-  const s = await state(p); const i = s.items.find(x => x.name === "מכונת כביסה");
-  assert(s.expenses.length === 0 && i.actual == null && i.removed, JSON.stringify(i));
-});
 test("MOV-06", "מעבר", "מחיקה לצמיתות", "טלוויזיה ← מחיקה לצמיתות ← מחיקה", "הפריט נמחק מהנתונים", async p => {
   await onboard(p); await openItem(p, "טלוויזיה"); await p.click(".sheet [data-act=delete-item]"); await p.click(".sheet .btn.danger");
   assert(!(await state(p)).items.some(x => x.name === "טלוויזיה"), "still exists");
 });
 test("MOV-07", "מעבר", "הוספת פריט", "סלון ← + פריט ← 'כורסה' 1800 ← שמירה", "הפריט נוסף לסלון", async p => {
-  await onboard(p); await tab(p, "move");
+  await onboard(p); await tab(p, "shop");
   await p.click("[data-act=add-item][data-room=living]");
   await p.fill(".sheet [name=name]", "כורסה"); await p.fill(".sheet [name=planned]", "1800"); await submit(p);
   const i = (await state(p)).items.find(x => x.name === "כורסה"); assert(i && i.room === "living" && i.planned === 1800, JSON.stringify(i));
@@ -320,24 +199,6 @@ test("MOV-08", "מעבר", "סינון נקנה / עוד לקנות", "קניי�
   names = await p.$$eval(".li[data-act=edit-item] .t", x => x.map(e => e.textContent));
   assert(!names.includes("מקרר"), "open filter shows bought item");
 });
-test("MOV-09", "מעבר", "צ׳קליסט נשמר", "צ׳קליסט ← סימון 2 משימות ← טעינה מחדש", "הסימונים נשארים, המונה מציג 2/15", async p => {
-  await onboard(p); await tab(p, "move"); await p.click("[data-act=move-tab][data-v=check]");
-  await p.click("[data-k=meters]"); await p.click("[data-k=arnona]");
-  await p.reload(); await tab(p, "move"); await p.click("[data-act=move-tab][data-v=check]");
-  assert((await p.textContent(".chip.done")).includes("2/15"), await p.textContent(".chip.done"));
-});
-test("MOV-10", "מעבר", "קריאת מונים נשמרת", "הזנת קריאת מים 1234 ← טעינה מחדש", "הערך נשמר", async p => {
-  await onboard(p); await tab(p, "move"); await p.click("[data-act=move-tab][data-v=check]");
-  await p.fill("[data-meter=water]", "1234"); await p.press("[data-meter=water]", "Tab");
-  await p.reload(); await tab(p, "move"); await p.click("[data-act=move-tab][data-v=check]");
-  assert((await p.inputValue("[data-meter=water]")) === "1234", "lost");
-});
-test("MOV-11", "מעבר", "פיקדון לא נספר כהוצאה", "פיקדונות ← הוספת פיקדון 11000 ← הוצאות", "הפיקדון מוצג בהמתנה ולא מופיע בהוצאות", async p => {
-  await onboard(p); await tab(p, "move"); await p.click("[data-act=move-tab][data-v=deposits]");
-  await p.click("[data-act=add-deposit]"); await p.fill(".sheet [name=name]", "פיקדון לבעל הדירה"); await p.fill(".sheet [name=amount]", "11000"); await submit(p);
-  assert((await p.textContent("#main")).includes("11,000"), "not shown");
-  await tab(p, "expenses"); assert(!(await p.textContent("#exp-list")).includes("11,000"), "counted as expense");
-});
 test("MOV-12", "מעבר", "מחיר שלילי", "מקרר ← מחיר בפועל ‎-500", "הערך נדחה", async p => {
   await onboard(p); await openItem(p, "מקרר"); await p.fill(".sheet [name=actual]", "-500"); await submit(p);
   const i = (await state(p)).items.find(x => x.name === "מקרר"); assert(i.actual == null || i.actual >= 0, "negative saved: " + i.actual);
@@ -345,7 +206,7 @@ test("MOV-12", "מעבר", "מחיר שלילי", "מקרר ← מחיר בפו�
 
 test("MOV-13", "מעבר", "החזרת פריט דרך 'פריט חדש'", "מייבש כביסה ← לא צריך ← חשמל ← + פריט ← בחירתו מהרשימה ← שמירה", "הרשימה מציעה את המייבש כ'הוסר'; אחרי השמירה הפריט המקורי חוזר (בלי כפילות) עם התקציב שלו", async p => {
   await onboard(p); await openItem(p, "מייבש כביסה"); await p.click(".sheet [data-act=remove-item]");
-  await tab(p, "move"); await p.click("[data-act=add-item][data-room=elec]");
+  await tab(p, "shop"); await p.click("[data-act=add-item][data-room=elec]");
   const opts = await p.$$eval("#item-suggest option", o => o.map(x => x.value + "|" + x.textContent));
   assert(opts[0] && opts[0].startsWith("מייבש כביסה|הוסר"), "removed item not offered first: " + opts.slice(0, 3));
   await p.fill(".sheet [name=name]", "מייבש כביסה");
@@ -356,21 +217,21 @@ test("MOV-13", "מעבר", "החזרת פריט דרך 'פריט חדש'", "מי
   assert(all.length === 1 && !all[0].removed && all[0].planned === 2300, JSON.stringify(all));
 });
 test("MOV-14", "מעבר", "הקלדה חופשית לצד הרשימה", "+ פריט ← הקלדת 'מנורת לילה' שלא ברשימה ← שמירה", "נוצר פריט חדש בשם שהוקלד", async p => {
-  await onboard(p); await tab(p, "move"); await p.click("[data-act=add-item][data-room=bedroom]");
+  await onboard(p); await tab(p, "shop"); await p.click("[data-act=add-item][data-room=bedroom]");
   await p.fill(".sheet [name=name]", "מנורת לילה"); await p.fill(".sheet [name=planned]", "150"); await submit(p);
   const it = (await state(p)).items.find(x => x.name === "מנורת לילה");
   assert(it && it.room === "bedroom" && !it.removed, JSON.stringify(it));
 });
 test("MOV-15", "מעבר", "פריט ברירת מחדל שנמחק לצמיתות", "טלוויזיה ← מחיקה לצמיתות ← + פריט", "'טלוויזיה' מוצעת שוב ברשימה עם הקבוצה והתקציב המקוריים", async p => {
   await onboard(p); await openItem(p, "טלוויזיה"); await p.click(".sheet [data-act=delete-item]"); await p.click(".sheet .btn.danger");
-  await tab(p, "move"); await p.click("[data-act=add-item][data-room=living]");
+  await tab(p, "shop"); await p.click("[data-act=add-item][data-room=living]");
   assert((await p.$$eval("#item-suggest option", o => o.map(x => x.value))).includes("טלוויזיה"), "not suggested");
   await p.fill(".sheet [name=name]", "טלוויזיה");
   assert((await p.inputValue(".sheet [name=room]")) === "elec" && (await p.inputValue(".sheet [name=planned]")) === "2500", "not prefilled");
 });
 
 test("MOV-16", "מעבר", "הורדת תקציב לפריט", "מקרר: תקציב 3500 ← 3000 ← שמירה", "הצפי הכולל יורד ב־500", async p => {
-  await onboard(p); await tab(p, "move");
+  await onboard(p); await tab(p, "shop");
   const before = +(await p.$$eval(".stat .v", v => v[1].textContent.replace(/[^\d]/g, "")));
   await openItem(p, "מקרר"); await p.fill(".sheet [name=planned]", "3000"); await submit(p);
   const after = +(await p.$$eval(".stat .v", v => v[1].textContent.replace(/[^\d]/g, "")));
@@ -390,7 +251,7 @@ test("MIG-01", "מעבר", "עדכון לרשימה החדשה בנתונים ק
       mk("elec", "מזגן + התקנה", 3000, { removed: true }), mk("living", "כורסה", 1800), mk("move", "הובלה", 2500)];
     delete s.meta.listVer;
   });
-  await tab(p, "move");
+  await tab(p, "shop");
   assert(await p.isVisible("[data-act=upgrade-list]"), "no upgrade banner");
   await p.click(".banner [data-act=upgrade-list]"); await p.click(".sheet .btn.primary");
   const it = (await state(p)).items, names = it.map(i => i.name);
@@ -401,76 +262,11 @@ test("MIG-01", "מעבר", "עדכון לרשימה החדשה בנתונים ק
   assert(!(await p.isVisible(".banner [data-act=upgrade-list]")), "banner stays");
 });
 test("MIG-02", "מעבר", "משתמש חדש", "פתיחה ראשונה ← מעבר", "אין באנר עדכון; הרשימה כבר החדשה (מזנון לטלוויזיה, חדר נוסף / עבודה)", async p => {
-  await onboard(p); await tab(p, "move");
+  await onboard(p); await tab(p, "shop");
   assert(!(await p.isVisible(".banner [data-act=upgrade-list]")), "banner for new user");
   const t = await p.textContent("#main"); assert(t.includes("מזנון לטלוויזיה") && t.includes("חדר נוסף / עבודה"), "new list missing");
 });
 
-/* --- bills --- */
-test("BIL-01", "חשבונות", "ממוצע חודשי", "שכר דירה 5500 חודשי, חשמל 450 דו־חודשי", "ממוצע לחודש 5,725", async p => {
-  await onboard(p); await setBill(p, "שכר דירה", { amount: 5500 }); await setBill(p, "חשמל", { amount: 450 });
-  assert((await p.textContent(".stat .v")).replace(/[^\d]/g, "") === "5725", await p.textContent(".stat .v"));
-});
-test("BIL-02", "חשבונות", "סימון 'שולם'", "חשמל עם חיוב הבא היום ← שולם 430 עם הערה", "נוצרת הוצאה עם ההערה; החיוב הבא זז חודשיים קדימה", async p => {
-  await onboard(p); await setBill(p, "חשמל", { amount: 450, nextDue: iso(0) });
-  await payBill(p, "חשמל", 430, "מזגן בקיץ");
-  const s = await state(p), b = s.bills.find(x => x.name === "חשמל");
-  assert(s.expenses.length === 1 && s.expenses[0].note.includes("מזגן בקיץ") && s.expenses[0].amount === 430, JSON.stringify(s.expenses));
-  const d = new Date(); d.setMonth(d.getMonth() + 2);
-  assert(b.nextDue.slice(0, 7) === d.toISOString().slice(0, 7), "nextDue " + b.nextDue);
-});
-test("BIL-03", "חשבונות", "התראה על חשבון חריג", "שני תשלומי מים של 200 ← תשלום שלישי 300", "הודעה שהחשבון גבוה ב־50% מהממוצע", async p => {
-  await onboard(p); await setBill(p, "מים", { amount: 200 });
-  await payBill(p, "מים", 200); await payBill(p, "מים", 200); await payBill(p, "מים", 300);
-  assert((await toast(p, "50%")).includes("50%"), "no warning: " + (await toast(p)));
-});
-test("BIL-04", "חשבונות", "כיבוי חשבון", "שכר דירה 5500 ← כיבוי 'רלוונטי לנו'", "יוצא מהממוצע החודשי ומההעברה המוצעת", async p => {
-  await onboard(p, { variable: 0 }); await setBill(p, "שכר דירה", { amount: 5500 }); await setBill(p, "שכר דירה", { active: false });
-  assert((await p.textContent(".stat .v")).replace(/[^\d]/g, "") === "0", "still counted");
-});
-test("BIL-05", "חשבונות", "חשבון באיחור", "ארנונה 600 עם חיוב הבא לפני 3 ימים ← בית", "התראה אדומה 'עבר מועד החיוב' עם כפתור תשלום", async p => {
-  await onboard(p); await setBill(p, "ארנונה", { amount: 600, nextDue: iso(-3) }); await tab(p, "home");
-  const t = await p.textContent(".banner.bad"); assert(t.includes("ארנונה") && t.includes("עבר מועד"), t);
-});
-test("BIL-06", "חשבונות", "חשבון קרוב", "מים עם חיוב בעוד יומיים ← בית", "התראה כתומה 'בעוד 2 ימים'", async p => {
-  await onboard(p); await setBill(p, "מים", { amount: 150, nextDue: iso(2) }); await tab(p, "home");
-  assert((await p.textContent(".banner.warn")).includes("בעוד 2 ימים"), "no warning");
-});
-test("BIL-07", "חשבונות", "הוספה ומחיקה של חשבון", "הוספת 'נטפליקס' 55 ← מחיקה", "נוסף ואז נמחק", async p => {
-  await onboard(p); await tab(p, "bills"); await p.click("[data-act=add-bill]");
-  await p.fill(".sheet [name=name]", "נטפליקס"); await p.fill(".sheet [name=amount]", "55"); await submit(p);
-  assert((await state(p)).bills.some(b => b.name === "נטפליקס"), "not added");
-  await openBill(p, "נטפליקס"); await p.click(".sheet [data-act=delete-bill]"); await p.click(".sheet .btn.danger");
-  assert(!(await state(p)).bills.some(b => b.name === "נטפליקס"), "not deleted");
-});
-test("BIL-08", "חשבונות", "חשבון מחשבון פרטי", "אינטרנט 100 ← 'מי משלם' = א׳ ← בית", "לא נכלל בסכום שכל אחד מעביר לחשבון המשותף", async p => {
-  await onboard(p, { variable: 0 }); await setBill(p, "אינטרנט", { amount: 100, payer: "a" }); await tab(p, "home");
-  assert(!(await p.textContent("#main")).includes("כל אחד מעביר החודש"), "personal bill counted in joint need");
-});
-test("BIL-09", "חשבונות", "סכום חשבון עם אגורות", "חשמל ← סכום 452.37", "הסכום נשמר", async p => {
-  await onboard(p); await setBill(p, "חשמל", { amount: "452.37" });
-  assert((await state(p)).bills.find(b => b.name === "חשמל").amount === 452.37, "blocked");
-});
-
-/* --- home / joint account --- */
-test("HOM-01", "בית", "סכום העברה מוצע", "שכר דירה 5500, חשמל 450 דו־חודשי, משתנות 3000", "כל אחד מעביר 4,363 (8,725 חלקי 2)", async p => {
-  await onboard(p, { variable: 3000 }); await setBill(p, "שכר דירה", { amount: 5500 }); await setBill(p, "חשמל", { amount: 450 }); await tab(p, "home");
-  assert((await p.textContent("#main")).includes("4,363"), "suggestion wrong");
-});
-test("HOM-02", "בית", "רישום העברה", "רישום העברה של א׳ בסכום המוצע ← הוצאה משותפת 600", "'הועבר אליו' 4,363, 'יצא ממנו' 600, א׳ מסומן ✓", async p => {
-  await onboard(p, { variable: 3000 }); await setBill(p, "שכר דירה", { amount: 5500 }); await setBill(p, "חשמל", { amount: 450 }); await tab(p, "home");
-  await p.click("[data-act=add-transfer]"); await submit(p);
-  await addExpense(p, { amount: 600, cat: "סופר ובית" }); await tab(p, "home");
-  const cols = await p.$$eval(".hero .cols b", x => x.map(e => e.textContent.replace(/[^\d]/g, "")));
-  assert(cols[0] === "4363" && cols[1] === "600", JSON.stringify(cols));
-  assert(await p.$(".chip.done"), "no ✓");
-});
-test("HOM-03", "בית", "איזון 50/50 וסגירת חשבון", "א׳ משלם 1000 מהחשבון הפרטי ← סגירת חשבון", "'דני צריך להעביר 500', ואחרי הרישום – 'מאוזנים'", async p => {
-  await onboard(p); await addExpense(p, { amount: 1000, payer: "a" }); await tab(p, "home");
-  assert((await p.textContent("#main")).includes("₪500"), "balance wrong");
-  await p.click("[data-act=settle]"); await submit(p);
-  assert((await p.textContent("#main")).includes("מאוזנים"), "not balanced after settle");
-});
 test("HOM-04", "בית", "התראת תקציב מעבר", "תקציב 10000 ← קניית מקרר 8500 ← בית; ואז ספה 2000", "התראה כתומה ב־85%; אדומה כשהתקציב נחצה", async p => {
   await onboard(p, { budget: 10000 }); await openItem(p, "מקרר"); await p.fill(".sheet [name=actual]", "8500"); await submit(p);
   await tab(p, "home"); assert((await p.textContent(".banner.warn")).includes("85%"), "no 80% warning");
@@ -481,139 +277,28 @@ test("HOM-05", "בית", "ספירה לאחור", "תאריך מעבר בעוד 
   await onboard(p, { moveDate: iso(29) }); assert((await p.textContent("#main")).includes("עוד 29 ימים"), "countdown");
 });
 
-test("HOM-06", "בית", "לפני הכניסה לדירה", "תאריך מעבר בחודש הבא; שכר דירה 5500, משתנות 3000 ← בית", "החודש אין סכום להעברה; מוצג שמהחודש הבא כל אחד יעביר 4,250", async p => {
-  await onboard(p, { moveDate: ymShift(1) + "-01", variable: 3000 }); await setBill(p, "שכר דירה", { amount: 5500 }); await tab(p, "home");
-  const t = await p.textContent("#main");
-  assert(t.includes("אין צורך להעביר") && t.includes("4,250") && !t.includes("כל אחד מעביר החודש"), "card: " + t.slice(t.indexOf("העברות לחשבון"), t.indexOf("העברות לחשבון") + 200));
-});
-test("HOM-07", "חשבונות", "תאריך חיוב ראשון ברירת מחדל", "תאריך מעבר בחודש הבא ← פתיחת 'שכר דירה' (בלי תאריך)", "שדה 'חיוב הבא' ממולא מראש בתאריך המעבר", async p => {
-  const d = ymShift(1) + "-01";
-  await onboard(p, { moveDate: d }); await openBill(p, "שכר דירה");
-  assert((await p.inputValue(".sheet [name=nextDue]")) === d, "nextDue " + (await p.inputValue(".sheet [name=nextDue]")));
-});
-test("REP-04", "דוחות", "תחזית מתחילה מהכניסה לדירה", "תאריך מעבר בעוד חודשיים; שכר דירה 5500 ← דוחות", "בחודש הראשון בתחזית הקבועות 0; מחודש המעבר 5,500", async p => {
-  await onboard(p, { moveDate: ymShift(2) + "-01" }); await setBill(p, "שכר דירה", { amount: 5500 }); await tab(p, "reports");
-  const vals = await p.$$eval("section.card", s => [...s.find(x => x.textContent.includes("תחזית")).querySelectorAll("tbody tr td:nth-child(2)")].map(td => td.textContent.replace(/[^\d]/g, "")));
-  assert(vals[0] === "0" && vals[1] === "5500", JSON.stringify(vals));
-});
-
 /* --- reports --- */
-test("REP-01", "דוחות", "פילוח לפי קטגוריה", "הוצאות 300 סופר + 100 סופר + 200 חשמל ← דוחות", "סה״כ 600; סופר 400 (67%)", async p => {
-  await onboard(p); await addExpense(p, { amount: 300, cat: "סופר ובית" }); await addExpense(p, { amount: 100, cat: "סופר ובית" }); await addExpense(p, { amount: 200, cat: "חשמל" });
-  await tab(p, "reports"); const t = await p.textContent(".hbars");
-  assert(t.includes("400") && t.includes("67%"), t);
-});
-test("REP-02", "דוחות", "תחזית תשלומי אשראי", "קנייה 1200 באשראי ב־12 תשלומים ← דוחות", "100 ₪ בכל אחד מ־6 החודשים הבאים", async p => {
-  await onboard(p); await addExpense(p, { amount: 1200, method: "אשראי", inst: 12 }); await tab(p, "reports");
-  const cells = await p.$$eval("table.t:nth-of-type(1)", () => 0);
-  const rows = await p.$$eval("section.card", s => s.find(x => x.textContent.includes("תחזית")).querySelectorAll("tbody tr").length);
-  const vals = await p.$$eval("section.card", s => [...s.find(x => x.textContent.includes("תחזית")).querySelectorAll("tbody tr td:nth-child(3)")].map(td => td.textContent.replace(/[^\d]/g, "")));
-  assert(rows === 6 && vals.every(v => v === "100"), JSON.stringify(vals) + " state=" + JSON.stringify((await state(p)).expenses.map(e => [e.amount, e.method, e.inst, e.date])));
-});
-test("REP-03", "דוחות", "טבלת מעבר – סכום השורות", "מכונת כביסה 2300 ← לא צריך ← להשאיר כהוצאה ← דוחות", "שורת הסה״כ 'בפועל' שווה לסכום השורות שמעליה", async p => {
-  await onboard(p); await openItem(p, "מכונת כביסה"); await p.fill(".sheet [name=actual]", "2300"); await submit(p);
-  await openItem(p, "מכונת כביסה"); await p.click(".sheet [data-act=remove-item]"); await p.click(".sheet [data-cb='0']");
-  await tab(p, "reports");
-  const r = await p.$$eval("section.card", s => { const c = s.find(x => x.textContent.includes("תכנון מול בפועל")); const rows = [...c.querySelectorAll("tbody tr")]; return rows.map(tr => tr.lastElementChild.textContent.replace(/[^\d]/g, "")); });
-  const total = +r.pop(), sumRows = r.reduce((a, b) => a + +b, 0);
-  assert(total === sumRows, `total ${total} ≠ rows ${sumRows}`);
-});
-
 /* --- excel / csv / backup --- */
-async function richData(p) {
-  await onboard(p, { budget: 45000, variable: 3000 });
-  await setBill(p, "שכר דירה", { amount: 5500, nextDue: iso(5) });
-  await setBill(p, "חשמל", { amount: 450 });
-  await payBill(p, "שכר דירה", 5500, "נובמבר");
-  await openItem(p, "מקרר"); await p.fill(".sheet [name=actual]", "5200"); await submit(p);
-  await addExpense(p, { amount: 420, cat: "סופר ובית", payer: "a", note: "שופרסל, \"מבצע\"" });
-  await addExpense(p, { amount: 90, cat: "סופר ובית", date: ymShift(-1) + "-20", note: "חודש קודם" });
-  await tab(p, "home"); await p.click("[data-act=add-transfer]"); await submit(p);
-}
-test("XLS-01", "אקסל", "ייצוא מלא", "נתונים לדוגמה ← דוחות ← הכול ← הורדה; חישוב מחדש ב־LibreOffice", "4 גיליונות מימין לשמאל; הנוסחאות מחושבות לאותם ערכים שבאפליקציה", async p => {
-  await richData(p); await tab(p, "reports");
-  const f = await download(p, "[data-act=export-xlsx]");
-  const x = xlsx(f, false);
-  assert(JSON.stringify(Object.keys(x)) === JSON.stringify(["הוצאות", "מעבר דירה", "חשבונות קבועים", "סיכום"]), Object.keys(x).join(","));
-  assert(Object.values(x).every(s => s.rtl), "not RTL");
-  const exp = x["הוצאות"].rows.filter(r => typeof r[1] === "number");
-  assert(exp.length === 4, "expense rows " + exp.length);
-  const rc = xlsx(f, true);
-  const tot = rc["הוצאות"].rows.find(r => r[0] === "סה״כ");
-  assert(Math.abs(tot[1] - (5500 + 5200 + 420 + 90)) < .01, "sum formula " + tot[1]);
-  const sumTot = rc["סיכום"].rows.find(r => r[0] === "סה״כ הוצאות");
-  assert(Math.abs(sumTot[1] - 11210) < .01, "summary total " + sumTot[1]);
-  const fridge = rc["מעבר דירה"].rows.find(r => r[1] === "מקרר");
-  assert(fridge[5] === 1700, "diff formula " + fridge[5]);
-});
-test("XLS-02", "אקסל", "ייצוא חודש אחד", "טווח 'החודש שנבחר' ← הורדה", "רק הוצאות החודש הנוכחי (בלי ה־90 מהחודש הקודם)", async p => {
-  await richData(p); await tab(p, "reports"); await p.selectOption("#x-range", "month");
-  const x = xlsx(await download(p, "[data-act=export-xlsx]"), false);
-  const notes = x["הוצאות"].rows.slice(4).map(r => r[6]).filter(Boolean);
-  assert(!notes.includes("חודש קודם") && notes.length === 3, JSON.stringify(notes));
-});
-test("XLS-03", "אקסל", "ייצוא סיכום בלבד", "ביטול כל הסימונים חוץ מ'סיכום' ← הורדה", "בקובץ רק גיליון 'סיכום', עם ערכים נכונים", async p => {
-  await richData(p); await tab(p, "reports");
-  for (const id of ["#x-exp", "#x-move", "#x-bills"]) await p.uncheck(id);
-  const x = xlsx(await download(p, "[data-act=export-xlsx]"), true);
-  assert(JSON.stringify(Object.keys(x)) === '["סיכום"]', "sheets: " + Object.keys(x).join(","));
-  assert(Math.abs(x["סיכום"].rows.find(r => r[0] === "סה״כ הוצאות")[1] - 11210) < .01, "summary values");
-});
-test("XLS-04", "אקסל", "ייצוא בלי תוכן", "ביטול כל הסימונים ← הורדה", "הודעה 'צריך לבחור', אין הורדה", async p => {
-  await onboard(p); await tab(p, "reports");
-  for (const id of ["#x-exp", "#x-move", "#x-bills", "#x-sum"]) await p.uncheck(id);
-  let got = false; p.once("download", () => { got = true; });
-  await p.click("[data-act=export-xlsx]");
-  assert((await toast(p, "צריך לבחור")).includes("צריך לבחור") && !got, "no validation");
-});
-test("XLS-05", "אקסל", "ייצוא CSV", "נתונים לדוגמה ← 'ייצוא הוצאות ל־CSV'", "קובץ עם BOM (עברית תקינה באקסל), כותרת ו־4 שורות, מרכאות מוברחות", async p => {
-  await richData(p); await tab(p, "reports");
-  const t = fs.readFileSync(await download(p, "[data-act=export-csv]"), "utf8");
-  assert(t.charCodeAt(0) === 0xFEFF, "no BOM");
-  assert(t.trim().split(/\r\n/).length === 5, "rows " + t.trim().split(/\r\n/).length);
-  assert(t.includes('"שופרסל, ""מבצע"""'), "quote escaping");
-});
-test("BAK-01", "גיבוי", "גיבוי ושחזור", "נתונים לדוגמה ← שמירת גיבוי ← דפדפן נקי ← שחזור מהקובץ", "כל הנתונים חוזרים (הוצאות, פריטים, העברות)", async p => {
-  await richData(p); await p.click("[data-act=go][data-v=settings]");
-  const f = await download(p, "[data-act=backup]");
-  const s1 = await state(p);
-  const p2 = await open();
-  await p2.evaluate(() => { localStorage.clear(); }); await p2.reload();
-  await p2.setInputFiles("#import-file", f); await p2.click(".sheet .btn.primary");
-  const s2 = await state(p2);
-  assert(s2.expenses.length === s1.expenses.length && s2.transfers.length === 1 && s2.items.length === s1.items.length, "mismatch");
-  await p2.context().close();
-});
 test("BAK-02", "גיבוי", "קובץ לא תקין", "שחזור מקובץ טקסט", "הודעת שגיאה, הנתונים לא משתנים", async p => {
-  await onboard(p); await addExpense(p, { amount: 10 });
+  await onboard(p); await buy(p, "מקרר", 3000);
   const f = path.join(OUT, "bad.json"); fs.writeFileSync(f, "not json");
   await p.setInputFiles("#import-file", f);
   assert((await toast(p, "קובץ")).includes("לא"), "no error");
-  assert((await state(p)).expenses.length === 1, "data changed");
+  assert((await state(p)).items.find(i => i.name === "מקרר").actual === 3000, "data changed");
 });
 
 /* --- UI / accessibility --- */
 test("UI-01", "תצוגה", "מסך צר 320px", "מעבר על כל הלשוניות ברוחב 320", "אין גלילה אופקית", async p => {
   await p.setViewportSize({ width: 320, height: 568 });
   await richData(p);
-  for (const v of ["home", "move", "bills", "expenses", "reports"]) {
+  for (const v of ["home", "shop", "check", "deposits", "reports"]) {
     await tab(p, v);
     const w = await p.evaluate(() => document.documentElement.scrollWidth);
     assert(w <= 320, `${v}: scrollWidth ${w}`);
   }
 });
-test("UI-02", "תצוגה", "סגירת חלון", "פתיחת טופס הוצאה ← Escape; פתיחה ← לחיצה על הרקע", "החלון נסגר בשני המקרים", async p => {
-  await onboard(p); await tab(p, "expenses");
-  await p.click("#fab"); await p.keyboard.press("Escape"); assert(!(await sheetOpen(p)), "esc");
-  await p.click("#fab"); await p.mouse.click(10, 10); assert(!(await sheetOpen(p)), "backdrop");
-});
-test("UI-03", "תצוגה", "זום אוטומטי באייפון", "בדיקת גודל הגופן בשדות קלט", "לפחות 16px (מתחת לזה ספארי מגדיל את המסך בכל לחיצה על שדה)", async p => {
-  await onboard(p); await tab(p, "expenses"); await p.click("#fab");
-  const fs_ = await p.$eval(".sheet [name=amount]", e => parseFloat(getComputedStyle(e).fontSize));
-  assert(fs_ >= 16, "input font-size " + fs_ + "px");
-});
 test("UI-04", "תצוגה", "כפתור 'חזור' באנדרואיד", "פתיחת טופס ← חזור בדפדפן", "הטופס נסגר והאפליקציה נשארת פתוחה", async p => {
-  await onboard(p); await tab(p, "move"); await openItem(p, "מקרר");
+  await onboard(p); await tab(p, "shop"); await openItem(p, "מקרר");
   await p.goBack().catch(() => {});
   await p.waitForTimeout(300);
   const stillApp = p.url().startsWith(BASE) && await p.isVisible("#tabs");
@@ -624,16 +309,155 @@ test("UI-05", "תצוגה", "ניגודיות טקסט בכרטיס העליון
   const m = css.match(/\.hero \{ background: linear-gradient\(135deg, (#[0-9A-Fa-f]{6}) 0%, (#[0-9A-Fa-f]{6}) 100%\); color: (#[0-9A-Fa-f]{6})/);
   for (const bg of [m[1], m[2]]) { const c = contrast(m[3], bg); assert(c >= 4.5, `${m[3]} on ${bg} = ${c.toFixed(2)}:1`); }
 });
-test("UI-06", "תצוגה", "מקלדת בחשבונות", "Tab לשורת חשבון ← Enter", "נפתח טופס עריכת החשבון", async p => {
-  await onboard(p); await tab(p, "bills");
-  await p.focus(".li[data-act=edit-bill]"); await p.keyboard.press("Enter");
-  assert(await sheetOpen(p), "Enter did nothing");
-});
 test("UI-07", "תצוגה", "שגיאות JavaScript", "זרימה מלאה עם נתונים לדוגמה בכל הלשוניות", "אין שגיאות בקונסול", async p => {
-  await richData(p); for (const v of ["move", "bills", "expenses", "reports", "home"]) await tab(p, v);
+  await richData(p); for (const v of ["shop", "check", "deposits", "reports", "home"]) await tab(p, v);
   assert(p.errors.length === 0, p.errors.join(" | "));
 });
 
+/* --- move-only focus --- */
+test("NAV-01", "מבנה", "רק מה שקשור למעבר", "פתיחה ← סקירת הלשוניות וההגדרות", "לשוניות: בית, קניות, משימות, פיקדונות, דוחות. אין חשבונות, הוצאות, שכר דירה, העברות או הוצאות משתנות", async p => {
+  await onboard(p);
+  const tabs = await p.$$eval(".tabs button span", x => x.map(e => e.textContent));
+  assert(JSON.stringify(tabs) === JSON.stringify(["בית", "קניות", "משימות", "פיקדונות", "דוחות"]), tabs.join(","));
+  const all = [];
+  for (const v of ["home", "shop", "check", "deposits", "reports"]) { await tab(p, v); all.push(await p.textContent("#main")); }
+  await p.click("[data-act=go][data-v=settings]"); all.push(await p.textContent("#main"));
+  const t = all.join(" ");
+  for (const w of ["שכר דירה", "חשבון קבוע", "חשבונות קבועים", "העברות לחשבון המשותף", "הוצאות משתנות", "קטגוריות"]) assert(!t.includes(w), "still mentions: " + w);
+});
+test("NAV-02", "מבנה", "כפתור + מוסיף פריט", "בית ← כפתור +", "נפתח טופס 'פריט חדש'", async p => {
+  await onboard(p); await p.click("#fab");
+  assert((await p.textContent(".sheet h3")) === "פריט חדש", await p.textContent(".sheet h3"));
+});
+test("HOM-01", "בית", "כרטיס תקציב המעבר", "תקציב 40,000 ← קניית מקרר 3,200 ← בית", "'נשאר מתקציב המעבר' 36,800; תקציב 40,000; שולם 3,200", async p => {
+  await onboard(p, { budget: 40000 }); await buy(p, "מקרר", 3200); await tab(p, "home");
+  assert((await p.textContent(".hero .big")).replace(/[^\d]/g, "") === "36800", await p.textContent(".hero .big"));
+  const cols = await p.$$eval(".hero .cols b", x => x.map(e => e.textContent.replace(/[^\d]/g, "")));
+  assert(cols[0] === "40000" && cols[1] === "3200", JSON.stringify(cols));
+});
+test("HOM-02", "בית", "לפי שלבים והבא בתור", "קניית מקרר ← בית", "שלב ראשון 1/7; 'הבא בתור' מציג פריטי חובה מיד שעוד לא נקנו (בלי המקרר)", async p => {
+  await onboard(p); await buy(p, "מקרר", 3200); await tab(p, "home");
+  const ph = await p.textContent(".hbars"); assert(ph.includes("1/7"), ph.replace(/\s+/g, " "));
+  const next = await p.$$eval("section.card", s => [...s.find(x => x.textContent.includes("הבא בתור")).querySelectorAll(".li .t")].map(e => e.textContent));
+  assert(next.length && !next.includes("מקרר") && next.includes("ספה"), JSON.stringify(next));
+});
+test("HOM-03", "בית", "איזון 50/50 וסגירת חשבון", "א׳ קונה מקרר ב־1,000 מהחשבון הפרטי ← בית ← סגירת חשבון", "'דני צריך להעביר 500', ואחרי הרישום – 'מאוזנים'", async p => {
+  await onboard(p); await buy(p, "מקרר", 1000, { payer: "a" }); await tab(p, "home");
+  assert((await p.textContent("#main")).includes("₪500"), "balance wrong");
+  await p.click("[data-act=settle]"); await submit(p);
+  assert((await p.textContent("#main")).includes("מאוזנים"), "not balanced after settle");
+});
+test("MOV-04", "מעבר", "הסרת פריט שכבר שולם", "מכונת כביסה 2,300 ← לא צריך ← אישור", "הפריט מוסר והתשלום יורד מ'שולם' (0)", async p => {
+  await onboard(p); await buy(p, "מכונת כביסה", 2300);
+  await openItem(p, "מכונת כביסה"); await p.click(".sheet [data-act=remove-item]"); await p.click(".sheet .btn.danger");
+  const i = (await state(p)).items.find(x => x.name === "מכונת כביסה");
+  assert(i.removed && i.actual == null, JSON.stringify(i));
+  await tab(p, "shop"); assert((await p.$$eval(".stat .v", v => v[2].textContent.replace(/[^\d]/g, ""))) === "0", "spent not 0");
+});
+test("MOV-09", "משימות", "צ׳קליסט נשמר", "משימות ← סימון 2 משימות ← טעינה מחדש", "הסימונים נשארים, המונה מציג 2/15", async p => {
+  await onboard(p); await tab(p, "check");
+  await p.click("[data-k=meters]"); await p.click("[data-k=arnona]");
+  await p.reload(); await tab(p, "check");
+  assert((await p.textContent(".chip.done")).includes("2/15"), await p.textContent(".chip.done"));
+});
+test("MOV-10", "משימות", "קריאת מונים נשמרת", "הזנת קריאת מים 1234 ← טעינה מחדש", "הערך נשמר", async p => {
+  await onboard(p); await tab(p, "check");
+  await p.fill("[data-meter=water]", "1234"); await p.press("[data-meter=water]", "Tab");
+  await p.reload(); await tab(p, "check");
+  assert((await p.inputValue("[data-meter=water]")) === "1234", "lost");
+});
+test("MOV-11", "פיקדונות", "פיקדון לא נספר בתקציב", "פיקדונות ← פיקדון 11,000 ← בית", "הפיקדון מוצג בהמתנה; 'שולם' בתקציב המעבר נשאר 0", async p => {
+  await onboard(p); await tab(p, "deposits");
+  await p.click("[data-act=add-deposit]"); await p.fill(".sheet [name=name]", "פיקדון לבעל הדירה"); await p.fill(".sheet [name=amount]", "11000"); await submit(p);
+  assert((await p.textContent("#main")).includes("11,000"), "not shown");
+  await tab(p, "home"); assert((await p.$$eval(".hero .cols b", x => x[1].textContent.replace(/[^\d]/g, ""))) === "0", "deposit counted");
+});
+test("MIG-03", "מעבר", "הוצאות מעבר מגרסה קודמת", "נתונים ישנים עם הוצאה 'מעבר דירה' 600 (הובלה) והוצאת סופר ← טעינה", "ההוצאה הופכת לפריט שנקנה ב'עלויות המעבר' ונספרת בתקציב; הוצאת הסופר לא מוצגת", async p => {
+  await onboard(p, { budget: 10000 });
+  await setState(p, s => { s.expenses = [{ id: "x1", amount: 600, cat: "מעבר דירה", date: "2026-11-01", payer: "a", method: "מזומן", inst: 1, note: "הובלה נוספת · מהדירה הישנה" }, { id: "x2", amount: 300, cat: "סופר ובית", date: "2026-11-01", payer: "j", note: "סופר" }]; });
+  const s = await state(p), it = s.items.find(i => i.name === "הובלה נוספת");
+  assert(it && it.actual === 600 && it.room === "move" && it.note === "מהדירה הישנה", JSON.stringify(it));
+  assert(s.expenses.length === 1, "move expense not removed");
+  await tab(p, "home"); assert((await p.$$eval(".hero .cols b", x => x[1].textContent.replace(/[^\d]/g, ""))) === "600", "not counted");
+  assert(!(await p.textContent("#main")).includes("סופר"), "general expense shown");
+});
+test("REP-01", "דוחות", "לפי חדר", "נתונים לדוגמה ← דוחות", "שורת הסה״כ שווה לסכום השורות בכל עמודה; שולם 7,200", async p => {
+  await richData(p); await tab(p, "reports");
+  const rows = await p.$$eval("section.card", s => [...s.find(x => x.textContent.includes("לפי חדר")).querySelectorAll("tbody tr")].map(tr => [...tr.children].slice(1).map(td => +td.textContent.replace(/[^\d]/g, ""))));
+  const tot = rows.pop();
+  for (let c = 0; c < 3; c++) assert(rows.reduce((a, r) => a + r[c], 0) === tot[c], `col ${c}: ${tot[c]}`);
+  assert(tot[2] === 7200, "spent " + tot[2]);
+});
+test("REP-02", "דוחות", "תשלומי אשראי", "מזרן 1,900 ב־10 תשלומים באשראי (בחודש שעבר) ← דוחות", "190 ₪ בחודש הנוכחי ובכל אחד מ־5 החודשים הבאים", async p => {
+  await richData(p); await tab(p, "reports");
+  const vals = await p.$$eval("section.card", s => [...s.find(x => x.textContent.includes("תשלומי אשראי")).querySelectorAll("tbody td:nth-child(2)")].map(td => td.textContent.replace(/[^\d]/g, "")));
+  assert(vals.length === 6 && vals.every(v => v === "190"), JSON.stringify(vals));
+});
+test("REP-03", "דוחות", "קניות לפי חודש", "נתונים לדוגמה ← דוחות", "החודש הקודם 1,900; החודש הנוכחי 5,300", async p => {
+  await richData(p); await tab(p, "reports");
+  const t = await p.$$eval("section.card", s => s.find(x => x.textContent.includes("קניות לפי חודש")).textContent);
+  assert(t.includes("1,900") && t.includes("5,300"), t.replace(/\s+/g, " "));
+});
+test("XLS-01", "אקסל", "ייצוא מלא", "נתונים לדוגמה ← דוחות ← הורדה; חישוב מחדש ב־LibreOffice", "3 גיליונות מימין לשמאל (רשימת קניות, סיכום, פיקדונות); הנוסחאות מחושבות לאותם ערכים שבאפליקציה", async p => {
+  await richData(p); await tab(p, "reports");
+  const f = await download(p, "[data-act=export-xlsx]");
+  const x = xlsx(f, false);
+  assert(JSON.stringify(Object.keys(x)) === JSON.stringify(["רשימת קניות", "סיכום", "פיקדונות"]), Object.keys(x).join(","));
+  assert(Object.values(x).every(s => s.rtl), "not RTL");
+  const rc = xlsx(f, true);
+  const fridge = rc["רשימת קניות"].rows.find(r => r[1] === "מקרר"); assert(fridge[5] === -300, "diff " + fridge[5]);
+  const tot = rc["רשימת קניות"].rows.find(r => r[0] === "סה״כ (בלי פריטים שהוסרו)"); assert(tot[4] === 7200, "list total " + tot[4]);
+  const sum = rc["סיכום"].rows;
+  assert(sum.find(r => r[0] === "נשאר מהתקציב")[1] === 32800, "left");
+  const roomTot = sum.filter(r => r[0] === "סה״כ")[0]; assert(roomTot[2] === 7200, "room spent " + roomTot[2]);
+  assert(sum.find(r => r[0] === "מוצרי חשמל")[2] === 5300, "elec spent");
+  assert(rc["פיקדונות"].rows.find(r => r[0] === "סה״כ בהמתנה")[1] === 11000, "deposits");
+});
+test("XLS-02", "אקסל", "סיכום בלבד", "ביטול 'רשימת הקניות' ו'פיקדונות' ← הורדה", "רק גיליון 'סיכום', עם ערכים נכונים בלי נוסחאות שבורות", async p => {
+  await richData(p); await tab(p, "reports"); await p.uncheck("#x-move"); await p.uncheck("#x-dep");
+  const x = xlsx(await download(p, "[data-act=export-xlsx]"), true);
+  assert(JSON.stringify(Object.keys(x)) === '["סיכום"]', Object.keys(x).join(","));
+  assert(x["סיכום"].rows.find(r => r[0] === "מוצרי חשמל")[2] === 5300, "values");
+});
+test("XLS-03", "אקסל", "ייצוא בלי תוכן", "ביטול כל הסימונים ← הורדה", "הודעה 'צריך לבחור', אין הורדה", async p => {
+  await onboard(p); await tab(p, "reports");
+  for (const id of ["#x-move", "#x-sum", "#x-dep"]) await p.uncheck(id);
+  let got = false; p.once("download", () => { got = true; });
+  await p.click("[data-act=export-xlsx]");
+  assert((await toast(p, "צריך לבחור")).includes("צריך לבחור") && !got, "no validation");
+});
+test("XLS-04", "אקסל", "ייצוא קניות ל־CSV", "נתונים לדוגמה ← 'ייצוא הקניות ל־CSV'", "קובץ עם BOM, כותרת ו־3 קניות, מרכאות מוברחות", async p => {
+  await richData(p); await tab(p, "reports");
+  const t = fs.readFileSync(await download(p, "[data-act=export-csv]"), "utf8");
+  assert(t.charCodeAt(0) === 0xFEFF, "no BOM");
+  assert(t.trim().split(/\r\n/).length === 4, "rows " + t.trim().split(/\r\n/).length);
+  assert(t.includes('"LG, ""מבצע"""'), "quote escaping");
+});
+test("BAK-01", "גיבוי", "גיבוי ושחזור", "נתונים לדוגמה ← שמירת גיבוי ← דפדפן נקי ← שחזור", "כל הנתונים חוזרים (קניות, פריטים שהוסרו, פיקדונות)", async p => {
+  await richData(p); await p.click("[data-act=go][data-v=settings]");
+  const f = await download(p, "[data-act=backup]");
+  const s1 = await state(p);
+  const p2 = await open();
+  await p2.setInputFiles("#import-file", f); await p2.click(".sheet .btn.primary");
+  const s2 = await state(p2);
+  assert(JSON.stringify(s2.items) === JSON.stringify(s1.items) && s2.deposits.length === 1, "mismatch");
+  await p2.context().close();
+});
+test("UI-02", "תצוגה", "סגירת חלון", "פתיחת טופס פריט ← Escape; פתיחה ← לחיצה על הרקע", "החלון נסגר בשני המקרים", async p => {
+  await onboard(p);
+  await p.click("#fab"); await p.keyboard.press("Escape"); assert(!(await sheetOpen(p)), "esc");
+  await p.click("#fab"); await p.mouse.click(10, 10); assert(!(await sheetOpen(p)), "backdrop");
+});
+test("UI-03", "תצוגה", "זום אוטומטי באייפון", "בדיקת גודל הגופן בשדות קלט", "לפחות 16px", async p => {
+  await onboard(p); await p.click("#fab");
+  const fs_ = await p.$eval(".sheet [name=planned]", e => parseFloat(getComputedStyle(e).fontSize));
+  assert(fs_ >= 16, "input font-size " + fs_ + "px");
+});
+test("UI-06", "תצוגה", "מקלדת ברשימת הקניות", "Tab לשורת פריט ← Enter", "נפתח טופס עריכת הפריט", async p => {
+  await onboard(p); await tab(p, "shop");
+  await p.focus(".li[data-act=edit-item]"); await p.keyboard.press("Enter");
+  assert(await sheetOpen(p), "Enter did nothing");
+});
 /* ---------- runner ---------- */
 (async () => {
   const srv = await serve();
