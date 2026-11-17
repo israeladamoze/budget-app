@@ -318,25 +318,24 @@ test("UI-07", "תצוגה", "שגיאות JavaScript", "זרימה מלאה עם
 
 /* --- actual payments --- */
 const paidNums = p => p.$$eval("#paid-table tbody tr", trs => trs.map(tr => [...tr.children].slice(1).map(td => +td.textContent.replace(/[^\d.]/g, ""))));
-test("PAID-01", "הוצאות בפועל", "הנתונים שנמסרו", "פתיחה ← לשונית 'הוצאות'", "3 שורות: מיטה+מזרן+הובלה 4,800 אשראי; מקרר+מכונה+הובלה 4,328 (1,900 אשראי, 2,028 תווים); ספה+הובלה 5,150 אשראי. סה״כ אשראי 11,850", async p => {
+test("PAID-01", "הוצאות בפועל", "הנתונים שנמסרו", "פתיחה ← לשונית 'הוצאות'", "3 שורות: מיטה+מזרן+הובלה 4,800 אשראי; מקרר+מכונה+הובלה 3,928 אחרי הנחה של 400 (1,900 אשראי, 2,028 תווים); ספה+הובלה 5,150 אשראי. סה״כ 13,878, אשראי 11,850", async p => {
   await onboard(p); await tab(p, "paid");
   const rows = await paidNums(p), tot = rows.pop();
   assert(rows.length === 3, "rows " + rows.length);
-  assert(tot[0] === 14278 && tot[1] === 11850 && tot[2] === 2028, JSON.stringify(tot));
+  assert(tot[0] === 13878 && tot[1] === 11850 && tot[2] === 2028, JSON.stringify(tot));
   assert((await p.textContent(".hero .big")).replace(/[^\d]/g, "") === "11850", "hero");
 });
-test("PAID-02", "הוצאות בפועל", "פער בפירוט", "שורת המקרר: 4,328 מול 1,900 + 2,028", "מוצגת אזהרה על 400 ₪ שלא פורטו, ועמודת 'אחר' עם 400", async p => {
+test("PAID-02", "הוצאות בפועל", "הסכומים מסתדרים", "שורת המקרר: 3,928 = 1,900 + 2,028", "אין אזהרת פער, אין עמודת 'אחר'; ההערה על ההנחה מוצגת", async p => {
   await onboard(p); await tab(p, "paid");
-  assert((await p.textContent(".banner.warn")).includes("400"), "no warning");
-  const tot = (await paidNums(p)).pop(); assert(tot[3] === 400, JSON.stringify(tot));
+  assert(!(await p.$(".banner.warn")), "warning shown");
+  const tot = (await paidNums(p)).pop(); assert(tot.length === 3, JSON.stringify(tot));
+  assert((await p.textContent("#paid-table")).includes("הנחה של 400"), "note missing");
 });
-test("PAID-03", "הוצאות בפועל", "תיקון הפער", "לחיצה על שורת המקרר ← תווים 2,428 ← שמירה", "האזהרה ועמודת 'אחר' נעלמות; תווים 2,428; אשראי נשאר 11,850", async p => {
-  await onboard(p); await tab(p, "paid");
-  await p.click("#paid-table tbody tr:nth-child(2)"); await p.fill(".sheet [name=vouchers]", "2428");
-  assert((await p.textContent("#paid-rest")).includes("✓"), await p.textContent("#paid-rest"));
-  await submit(p);
-  assert(!(await p.$(".banner.warn")), "warning stays");
-  const tot = (await paidNums(p)).pop(); assert(tot.length === 3 && tot[1] === 11850 && tot[2] === 2428, JSON.stringify(tot));
+test("PAID-03", "הוצאות בפועל", "עדכון נתונים שכבר נטענו", "נתונים מהגרסה הקודמת (מקרר 4,328) ← טעינה", "השורה מתעדכנת ל־3,928 עם הערת ההנחה; שורה שנערכה ידנית לא משתנה", async p => {
+  await onboard(p);
+  await setState(p, s => { s.meta.paidFix2 = false; s.payments = [{ id: "a", desc: "מקרר + מכונת כביסה + הובלה", total: 4328, credit: 1900, vouchers: 2028, note: "" }, { id: "b", desc: "ספה + הובלה", total: 5000, credit: 5000, vouchers: 0, note: "" }]; });
+  const ps = (await state(p)).payments;
+  assert(ps[0].total === 3928 && ps[0].note.includes("400") && ps[1].total === 5000, JSON.stringify(ps));
 });
 test("PAID-04", "הוצאות בפועל", "הוספה ובדיקת תקינות", "הוספת 'שולחן סלון' 700: קודם אשראי 800 (שגוי), ואז אשראי 700", "הסכום השגוי נדחה; אחרי התיקון השורה נוספת ואשראי עולה ל־12,550", async p => {
   await onboard(p); await tab(p, "paid"); await p.click("[data-act=add-paid]");
@@ -355,10 +354,10 @@ test("PAID-06", "הוצאות בפועל", "הנתונים נטענים פעם �
   await onboard(p); await setState(p, s => { s.payments = []; }); await tab(p, "paid");
   assert(!(await p.$("#paid-table")) && (await p.textContent("#main")).includes("עוד לא נרשמו"), "seed came back");
 });
-test("PAID-07", "הוצאות בפועל", "באקסל", "דוחות ← הורדה; חישוב מחדש", "גיליון 'הוצאות בפועל' עם סה״כ אשראי 11,850, תווים 2,028 ו'אחר' 400", async p => {
+test("PAID-07", "הוצאות בפועל", "באקסל", "דוחות ← הורדה; חישוב מחדש", "גיליון 'הוצאות בפועל' עם סה״כ 13,878, אשראי 11,850, תווים 2,028 ו'אחר' 0", async p => {
   await onboard(p); await tab(p, "reports");
   const x = xlsx(await download(p, "[data-act=export-xlsx]"), true), r = x["הוצאות בפועל"].rows.find(r => r[0] === "סה״כ");
-  assert(r[2] === 14278 && r[3] === 11850 && r[4] === 2028 && r[5] === 400, JSON.stringify(r));
+  assert(r[2] === 13878 && r[3] === 11850 && r[4] === 2028 && r[5] === 0, JSON.stringify(r));
 });
 
 /* --- urgent focus --- */

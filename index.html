@@ -319,13 +319,23 @@ function newItem(x) { return { id: uid(), room: x[0], name: x[1], prio: x[2], pl
 /* actual payments the couple reported (Nov 2026) – loaded once into the "הוצאות" screen */
 var PAID_SEED = [
   ["מיטה זוגית + מזרן + הובלה", 4800, 4800, 0],
-  ["מקרר + מכונת כביסה + הובלה", 4328, 1900, 2028],
+  ["מקרר + מכונת כביסה + הובלה", 3928, 1900, 2028, "מחיר מלא 4,328 ₪ – הנחה של 400 ₪ דרך חבר"],
   ["ספה + הובלה", 5150, 5150, 0]
 ];
 function seedPayments() {
   if (S.meta.paidSeeded) return;
-  if (!S.payments.length) PAID_SEED.forEach(function (x) { S.payments.push({ id: uid(), desc: x[0], date: "", total: x[1], credit: x[2], vouchers: x[3], note: "" }); });
+  if (!S.payments.length) PAID_SEED.forEach(function (x) { S.payments.push({ id: uid(), desc: x[0], date: "", total: x[1], credit: x[2], vouchers: x[3], note: x[4] || "" }); });
   S.meta.paidSeeded = true; save();
+}
+/* the fridge + washer row was first loaded with the full price; the real price was 400 less (friend's discount) */
+function fixPaymentsV2() {
+  if (S.meta.paidFix2) return;
+  S.payments.forEach(function (p) {
+    if (p.desc === "מקרר + מכונת כביסה + הובלה" && +p.total === 4328 && +p.credit === 1900 && +p.vouchers === 2028) {
+      p.total = 3928; p.note = p.note ? p.note + " · מחיר מלא 4,328 ₪ – הנחה של 400 ₪ דרך חבר" : "מחיר מלא 4,328 ₪ – הנחה של 400 ₪ דרך חבר";
+    }
+  });
+  S.meta.paidFix2 = true; save();
 }
 function paidOther(p) { return Math.round(((+p.total || 0) - (+p.credit || 0) - (+p.vouchers || 0)) * 100) / 100; }
 function paidTotals() {
@@ -1177,7 +1187,7 @@ document.addEventListener("submit", function (ev) {
     ev.preventDefault(); var d = formData(f), s = S.settings;
     s.nameA = d.nameA.trim(); s.nameB = d.nameB.trim(); s.moveDate = d.moveDate;
     s.moveBudget = num(d.moveBudget) || 0;
-    if (f.id === "welcome-form") { S.setup = true; view = "home"; seedPayments(); } else toast("נשמר");
+    if (f.id === "welcome-form") { S.setup = true; view = "home"; seedPayments(); fixPaymentsV2(); } else toast("נשמר");
     save(); render();
   }
 });
@@ -1188,7 +1198,7 @@ document.addEventListener("keydown", function (ev) {
 });
 
 migrateMoveExpenses();
-if (S.setup) seedPayments();
+if (S.setup) { seedPayments(); fixPaymentsV2(); }
 try { history.replaceState({ v: view }, ""); } catch (e) {}
 render();
 if ("serviceWorker" in navigator && location.protocol === "https:" && !inViewer) {
