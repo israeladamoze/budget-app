@@ -178,7 +178,7 @@ table.t td.n, table.t th.n { text-align: left; }
 
 /* tabs */
 .tabs { position: fixed; z-index: 30; left: 12px; right: 12px; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); max-width: 560px; margin: 0 auto; background: rgba(255, 255, 255, .96); backdrop-filter: blur(10px); border: 1px solid var(--line); border-radius: 22px; padding: 6px; box-shadow: 0 8px 28px rgba(11, 42, 60, .14); }
-.tabs .in { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; }
+.tabs .in { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; }
 .tabs button { border: 0; background: none; border-radius: 16px; padding: 6px 2px; min-height: 52px; cursor: pointer; display: grid; justify-items: center; align-content: center; gap: 1px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
 .tabs svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .tabs button[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
@@ -274,7 +274,7 @@ function seed() {
     settings: { nameA: "", nameB: "", moveDate: "", moveBudget: 42500, scope: "urgent", variable: 0, cats: DEFAULT_CATS.slice() },
     items: DEFAULT_ITEMS.map(function (x) { return { id: uid(), room: x[0], name: x[1], prio: x[2], planned: x[3], actual: null, status: "todo", store: "", payer: "j", method: "אשראי", inst: 1, date: "", warranty: "", note: "", removed: false }; }),
     bills: [],
-    expenses: [], deposits: [], settlements: [], transfers: [], checklist: {}, meters: { water: "", elec: "", gas: "", date: "" },
+    expenses: [], deposits: [], payments: [], settlements: [], transfers: [], checklist: {}, meters: { water: "", elec: "", gas: "", date: "" },
     meta: { lastBackup: null, listVer: LIST_VER }
   };
 }
@@ -296,6 +296,7 @@ function normalize(o) {
     expenses: Array.isArray(o.expenses) ? o.expenses : [],
     deposits: Array.isArray(o.deposits) ? o.deposits : [],
     settlements: Array.isArray(o.settlements) ? o.settlements : [],
+    payments: Array.isArray(o.payments) ? o.payments : [],
     transfers: Array.isArray(o.transfers) ? o.transfers : [],
     checklist: o.checklist && typeof o.checklist === "object" ? o.checklist : {},
     meters: o.meters && typeof o.meters === "object" ? o.meters : base.meters,
@@ -315,6 +316,22 @@ try { if (navigator.storage && navigator.storage.persist) navigator.storage.pers
 
 function newItem(x) { return { id: uid(), room: x[0], name: x[1], prio: x[2], planned: x[3], actual: null, status: "todo", store: "", payer: "j", method: "אשראי", inst: 1, date: "", warranty: "", note: "", removed: false }; }
 /* older versions kept some move costs as general expenses – turn them into items of the move list */
+/* actual payments the couple reported (Nov 2026) – loaded once into the "הוצאות" screen */
+var PAID_SEED = [
+  ["מיטה זוגית + מזרן + הובלה", 4800, 4800, 0],
+  ["מקרר + מכונת כביסה + הובלה", 4328, 1900, 2028],
+  ["ספה + הובלה", 5150, 5150, 0]
+];
+function seedPayments() {
+  if (S.meta.paidSeeded) return;
+  if (!S.payments.length) PAID_SEED.forEach(function (x) { S.payments.push({ id: uid(), desc: x[0], date: "", total: x[1], credit: x[2], vouchers: x[3], note: "" }); });
+  S.meta.paidSeeded = true; save();
+}
+function paidOther(p) { return Math.round(((+p.total || 0) - (+p.credit || 0) - (+p.vouchers || 0)) * 100) / 100; }
+function paidTotals() {
+  return { total: sum(S.payments, function (p) { return p.total; }), credit: sum(S.payments, function (p) { return p.credit; }),
+    vouchers: sum(S.payments, function (p) { return p.vouchers; }), other: sum(S.payments, paidOther) };
+}
 function migrateMoveExpenses() {
   var mv = S.expenses.filter(function (e) { return e.cat === MOVE_CAT && !e.billId; });
   if (!mv.length) return;
@@ -449,7 +466,7 @@ function installmentLoad(ym) {
 /* ================= routing ================= */
 var view = "home", showRemoved = false, moveFilter = "all";
 
-var TABS = [["home", "בית", "home"], ["shop", "קניות", "box"], ["check", "משימות", "list"], ["reports", "דוחות", "chart"]];
+var TABS = [["home", "בית", "home"], ["shop", "קניות", "box"], ["paid", "הוצאות", "wallet"], ["check", "משימות", "list"], ["reports", "דוחות", "chart"]];
 function renderTabs() {
   var t = $("#tabs");
   t.hidden = !S.setup;
@@ -461,7 +478,7 @@ function renderTabs() {
 function render() {
   var m = $("#main");
   if (!S.setup) { m.innerHTML = renderWelcome(); renderTabs(); return; }
-  var R = { home: renderHome, shop: renderShop, check: renderChecklist, reports: renderReports, settings: renderSettings };
+  var R = { home: renderHome, shop: renderShop, paid: renderPaid, check: renderChecklist, reports: renderReports, settings: renderSettings };
   if (!R[view]) view = "home";
   m.innerHTML = R[view]();
   renderTabs();
@@ -627,6 +644,56 @@ function itemRow(i) {
 }
 
 /* ================= checklist ================= */
+/* ================= actual payments ================= */
+function renderPaid() {
+  var t = paidTotals(), ps = S.payments;
+  var h = topbar("הוצאות בפועל", "כמה שילמנו ובאיזה אמצעי תשלום");
+  h += '<section class="hero"><div><div class="k">סה״כ שולם באשראי</div><div class="big">' + money(t.credit) + "</div></div>" +
+    '<div class="cols"><div><span>סה״כ הוצאות</span><b>' + money(t.total) + "</b></div><div><span>בתווים</span><b>" + money(t.vouchers) + "</b></div><div><span>" + (t.other ? "אחר / לא פורט" : "אחר") + "</span><b>" + money(t.other) + "</b></div></div></section>";
+  var bad = ps.filter(function (p) { return paidOther(p) !== 0; });
+  if (bad.length) h += '<div class="banner warn"><span>' + bad.map(function (p) { var o = paidOther(p); return "ב<b>" + esc(p.desc) + "</b> " + (o > 0 ? "חסר פירוט של " + money(o) + " (הסכום הכולל גבוה מאשראי + תווים)" : "האשראי והתווים גבוהים מהסכום הכולל ב־" + money(-o)); }).join("<br>") + '. אפשר לתקן בלחיצה על השורה.</span></div>';
+  h += '<section class="card"><h2>פירוט</h2>' + (ps.length ?
+    '<div style="overflow-x:auto"><table class="t" id="paid-table"><thead><tr><th>מה נקנה</th><th class="n">סה״כ</th><th class="n">אשראי</th><th class="n">תווים</th>' + (t.other ? '<th class="n">אחר</th>' : "") + "</tr></thead><tbody>" +
+    ps.map(function (p) {
+      var o = paidOther(p);
+      return '<tr data-act="edit-paid" data-id="' + p.id + '" role="button" tabindex="0" style="cursor:pointer"><td>' + esc(p.desc) + (p.date ? '<div class="muted small">' + shortDate(p.date) + "</div>" : "") + (p.note ? '<div class="muted small">' + esc(p.note) + "</div>" : "") +
+        '</td><td class="n">' + money(p.total) + '</td><td class="n">' + money(p.credit) + '</td><td class="n">' + money(p.vouchers) + "</td>" + (t.other ? '<td class="n' + (o ? " over" : "") + '">' + money(o) + "</td>" : "") + "</tr>";
+    }).join("") +
+    '<tr><td><b>סה״כ</b></td><td class="n"><b>' + money(t.total) + '</b></td><td class="n"><b>' + money(t.credit) + '</b></td><td class="n"><b>' + money(t.vouchers) + "</b></td>" + (t.other ? '<td class="n"><b>' + money(t.other) + "</b></td>" : "") + "</tr></tbody></table></div>" +
+    '<p class="hint" style="margin:0">לחיצה על שורה – עריכה או מחיקה.</p>'
+    : '<div class="empty">עוד לא נרשמו הוצאות.</div>') +
+    '<button class="btn soft" data-act="add-paid">הוספת הוצאה</button></section>';
+  return h;
+}
+function paidSheet(id) {
+  var p = id ? S.payments.find(function (x) { return x.id === id; }) : null, d = p || {};
+  openSheet("<h3>" + (p ? "עריכת הוצאה" : "הוצאה חדשה") + '</h3><form id="f" style="display:grid;gap:12px">' +
+    '<label class="field"><span>מה נקנה</span><input type="text" name="desc" value="' + esc(d.desc || "") + '" placeholder="למשל: ספה + הובלה" required></label>' +
+    '<div class="grid2"><label class="field"><span>סכום כולל</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="total" value="' + (d.total != null ? d.total : "") + '" required></div></label>' +
+    '<label class="field"><span>תאריך</span><input type="date" name="date" value="' + esc(d.date || "") + '"></label></div>' +
+    '<div class="grid2"><label class="field"><span>שולם באשראי</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="credit" value="' + (d.credit != null ? d.credit : "") + '"></div></label>' +
+    '<label class="field"><span>שולם בתווים</span><div class="money"><input type="number" inputmode="decimal" step="any" min="0" name="vouchers" value="' + (d.vouchers ? d.vouchers : "") + '"></div></label></div>' +
+    '<p class="hint" id="paid-rest" style="margin:0"></p>' + noteField(d.note) +
+    '<button class="btn primary wide" type="submit">שמירה</button>' +
+    (p ? '<button class="btn danger wide" type="button" data-act="delete-paid" data-id="' + p.id + '">מחיקה</button>' : "") + "</form>",
+  function (el) {
+    function upd() {
+      var f = formData($("#f", el)), o = paidOther({ total: num(f.total), credit: num(f.credit), vouchers: num(f.vouchers) });
+      $("#paid-rest", el).textContent = !num(f.total) ? "" : o > 0 ? "נשאר " + moneyT(o) + " שלא שויך לאשראי או לתווים (ייספר כ'אחר')." : o < 0 ? "אשראי + תווים גבוהים מהסכום הכולל ב־" + moneyT(-o) + "." : "הסכום מתחלק במלואו ✓";
+    }
+    $$("input[name=total],input[name=credit],input[name=vouchers]", el).forEach(function (x) { x.addEventListener("input", upd); }); upd();
+    $("#f", el).onsubmit = function (ev) {
+      ev.preventDefault(); var f = formData(ev.target), tot = num(f.total);
+      if (!f.desc.trim() || tot == null || tot <= 0) { toast("צריך תיאור וסכום כולל"); return; }
+      var rec = p || { id: uid() };
+      rec.desc = f.desc.trim(); rec.total = tot; rec.credit = num(f.credit) || 0; rec.vouchers = num(f.vouchers) || 0; rec.date = f.date; rec.note = f.note.trim();
+      if (rec.credit + rec.vouchers > tot + 0.001) { toast("אשראי + תווים גבוהים מהסכום הכולל"); return; }
+      if (!p) S.payments.push(rec);
+      save(); closeSheet(); render(); toast(p ? "ההוצאה עודכנה" : "ההוצאה נוספה");
+    };
+  });
+}
+
 function renderChecklist() {
   var done = CHECKLIST.filter(function (c) { return S.checklist[c[0]]; }).length, m = S.meters;
   return topbar("משימות למעבר", countdown()) +
@@ -687,6 +754,7 @@ function renderReports() {
     '<div style="display:grid;gap:10px"><span class="label">מה לכלול</span>' +
     '<label class="check"><input type="checkbox" id="x-move" checked><span>רשימת הקניות</span></label>' +
     '<label class="check"><input type="checkbox" id="x-sum" checked><span>סיכום (' + (U ? "דחוף בלבד" : "לפי חדר ושלב") + ', ואיזון)</span></label>' +
+    '<label class="check"><input type="checkbox" id="x-paid" checked><span>הוצאות בפועל (אשראי ותווים)</span></label>' +
     "</div>" +
     '<div class="btns"><button class="btn primary" data-act="export-xlsx">הורדת קובץ אקסל</button>' +
     (canShareFiles() ? '<button class="btn soft" data-act="share-xlsx">שליחה (וואטסאפ / מייל)</button>' : "") + "</div>" +
@@ -945,7 +1013,7 @@ function buildWorkbook(sheets) {
 function c0ht(sh, ri) { return sh.heights && sh.heights[ri] ? ' ht="' + sh.heights[ri] + '" customHeight="1"' : ""; }
 
 function exportOptions() {
-  return { move: $("#x-move").checked, sum: $("#x-sum").checked };
+  return { move: $("#x-move").checked, sum: $("#x-sum").checked, paid: $("#x-paid").checked };
 }
 function buildExport(o) {
   var gen = "הופק: " + shortDate(today()) + "  ·  " + nameOf("a") + " ו" + nameOf("b") + (S.settings.moveDate ? "  ·  תאריך מעבר: " + shortDate(S.settings.moveDate) : "");
@@ -1005,12 +1073,25 @@ function buildExport(o) {
     }
     sheets.push({ name: "סיכום", rows: sr, widths: [40, 15, 15], freeze: 0, merges: ["A1:C1", "A2:C2"], heights: { 0: 24 } });
   }
+  if (o.paid) {
+    var pr = [[{ v: "הוצאות בפועל", s: ST.title }], [{ v: gen, s: ST.muted }], null,
+      ["מה נקנה", "תאריך", "סכום כולל", "אשראי", "תווים", "אחר / לא פורט", "הערה"].map(function (x) { return { v: x, s: ST.head }; })];
+    S.payments.forEach(function (p) {
+      var R = pr.length + 1;
+      pr.push([{ v: p.desc }, { v: p.date ? serial(p.date) : "", s: ST.date }, { v: +p.total || 0, s: ST.money }, { v: +p.credit || 0, s: ST.money }, { v: +p.vouchers || 0, s: ST.money },
+        { f: "C" + R + "-D" + R + "-E" + R, v: paidOther(p), s: ST.money }, { v: p.note || "", s: ST.wrap }]);
+    });
+    var pl = Math.max(5, pr.length), pt = paidTotals(); pr.push(null);
+    pr.push([{ v: "סה״כ", s: ST.sumL }, { v: "", s: ST.sumL }, { f: "SUM(C5:C" + pl + ")", v: pt.total, s: ST.sumM }, { f: "SUM(D5:D" + pl + ")", v: pt.credit, s: ST.sumM },
+      { f: "SUM(E5:E" + pl + ")", v: pt.vouchers, s: ST.sumM }, { f: "SUM(F5:F" + pl + ")", v: pt.other, s: ST.sumM }]);
+    sheets.push({ name: "הוצאות בפועל", rows: pr, widths: [32, 12, 14, 14, 14, 15, 30], freeze: 4, merges: ["A1:G1", "A2:G2"], heights: { 0: 24, 3: 22 } });
+  }
   return sheets;
 }
 function exportName() { return "move-budget_" + today() + ".xlsx"; }
 function makeXlsx() {
   var o = exportOptions();
-  if (!o.move && !o.sum) { toast("צריך לבחור לפחות דבר אחד לייצוא"); return null; }
+  if (!o.move && !o.sum && !o.paid) { toast("צריך לבחור לפחות דבר אחד לייצוא"); return null; }
   return { name: exportName(), blob: buildWorkbook(buildExport(o)) };
 }
 
@@ -1061,7 +1142,13 @@ var ACTS = {
         toast("הרשימה עודכנה: " + r.added + " נוספו, " + r.updated + " עודכנו, " + r.removed + " הוסרו");
       } }]);
   },
-  "dismiss-list": function () { S.meta.listVer = LIST_VER; save(); render(); }
+  "dismiss-list": function () { S.meta.listVer = LIST_VER; save(); render(); },
+  "add-paid": function () { paidSheet(null); },
+  "edit-paid": function (el) { paidSheet(el.dataset.id); },
+  "delete-paid": function (el) {
+    var id = el.dataset.id;
+    confirmSheet("למחוק את ההוצאה?", "", [{ label: "מחיקה", cls: "danger", fn: function () { S.payments = S.payments.filter(function (x) { return x.id !== id; }); save(); render(); toast("ההוצאה נמחקה"); } }]);
+  }
 };
 document.addEventListener("click", function (ev) {
   var el = ev.target.closest("[data-act]");
@@ -1090,7 +1177,7 @@ document.addEventListener("submit", function (ev) {
     ev.preventDefault(); var d = formData(f), s = S.settings;
     s.nameA = d.nameA.trim(); s.nameB = d.nameB.trim(); s.moveDate = d.moveDate;
     s.moveBudget = num(d.moveBudget) || 0;
-    if (f.id === "welcome-form") { S.setup = true; view = "home"; } else toast("נשמר");
+    if (f.id === "welcome-form") { S.setup = true; view = "home"; seedPayments(); } else toast("נשמר");
     save(); render();
   }
 });
@@ -1101,6 +1188,7 @@ document.addEventListener("keydown", function (ev) {
 });
 
 migrateMoveExpenses();
+if (S.setup) seedPayments();
 try { history.replaceState({ v: view }, ""); } catch (e) {}
 render();
 if ("serviceWorker" in navigator && location.protocol === "https:" && !inViewer) {

@@ -293,7 +293,7 @@ test("BAK-02", "גיבוי", "קובץ לא תקין", "שחזור מקובץ ט
 test("UI-01", "תצוגה", "מסך צר 320px", "מעבר על כל הלשוניות ברוחב 320", "אין גלילה אופקית", async p => {
   await p.setViewportSize({ width: 320, height: 568 });
   await richData(p);
-  for (const v of ["home", "shop", "check", "reports"]) {
+  for (const v of ["home", "shop", "paid", "check", "reports"]) {
     await tab(p, v);
     const w = await p.evaluate(() => document.documentElement.scrollWidth);
     assert(w <= 320, `${v}: scrollWidth ${w}`);
@@ -312,8 +312,53 @@ test("UI-05", "תצוגה", "ניגודיות טקסט בכרטיס העליון
   for (const bg of [m[1], m[2]]) { const c = contrast(m[3], bg); assert(c >= 4.5, `${m[3]} on ${bg} = ${c.toFixed(2)}:1`); }
 });
 test("UI-07", "תצוגה", "שגיאות JavaScript", "זרימה מלאה עם נתונים לדוגמה בכל הלשוניות", "אין שגיאות בקונסול", async p => {
-  await richData(p); for (const v of ["shop", "check", "reports", "home"]) await tab(p, v);
+  await richData(p); for (const v of ["shop", "paid", "check", "reports", "home"]) await tab(p, v);
   assert(p.errors.length === 0, p.errors.join(" | "));
+});
+
+/* --- actual payments --- */
+const paidNums = p => p.$$eval("#paid-table tbody tr", trs => trs.map(tr => [...tr.children].slice(1).map(td => +td.textContent.replace(/[^\d.]/g, ""))));
+test("PAID-01", "הוצאות בפועל", "הנתונים שנמסרו", "פתיחה ← לשונית 'הוצאות'", "3 שורות: מיטה+מזרן+הובלה 4,800 אשראי; מקרר+מכונה+הובלה 4,328 (1,900 אשראי, 2,028 תווים); ספה+הובלה 5,150 אשראי. סה״כ אשראי 11,850", async p => {
+  await onboard(p); await tab(p, "paid");
+  const rows = await paidNums(p), tot = rows.pop();
+  assert(rows.length === 3, "rows " + rows.length);
+  assert(tot[0] === 14278 && tot[1] === 11850 && tot[2] === 2028, JSON.stringify(tot));
+  assert((await p.textContent(".hero .big")).replace(/[^\d]/g, "") === "11850", "hero");
+});
+test("PAID-02", "הוצאות בפועל", "פער בפירוט", "שורת המקרר: 4,328 מול 1,900 + 2,028", "מוצגת אזהרה על 400 ₪ שלא פורטו, ועמודת 'אחר' עם 400", async p => {
+  await onboard(p); await tab(p, "paid");
+  assert((await p.textContent(".banner.warn")).includes("400"), "no warning");
+  const tot = (await paidNums(p)).pop(); assert(tot[3] === 400, JSON.stringify(tot));
+});
+test("PAID-03", "הוצאות בפועל", "תיקון הפער", "לחיצה על שורת המקרר ← תווים 2,428 ← שמירה", "האזהרה ועמודת 'אחר' נעלמות; תווים 2,428; אשראי נשאר 11,850", async p => {
+  await onboard(p); await tab(p, "paid");
+  await p.click("#paid-table tbody tr:nth-child(2)"); await p.fill(".sheet [name=vouchers]", "2428");
+  assert((await p.textContent("#paid-rest")).includes("✓"), await p.textContent("#paid-rest"));
+  await submit(p);
+  assert(!(await p.$(".banner.warn")), "warning stays");
+  const tot = (await paidNums(p)).pop(); assert(tot.length === 3 && tot[1] === 11850 && tot[2] === 2428, JSON.stringify(tot));
+});
+test("PAID-04", "הוצאות בפועל", "הוספה ובדיקת תקינות", "הוספת 'שולחן סלון' 700: קודם אשראי 800 (שגוי), ואז אשראי 700", "הסכום השגוי נדחה; אחרי התיקון השורה נוספת ואשראי עולה ל־12,550", async p => {
+  await onboard(p); await tab(p, "paid"); await p.click("[data-act=add-paid]");
+  await p.fill(".sheet [name=desc]", "שולחן סלון"); await p.fill(".sheet [name=total]", "700"); await p.fill(".sheet [name=credit]", "800");
+  await p.click(".sheet button[type=submit]");
+  assert(await sheetOpen(p) && (await toast(p, "גבוהים")).includes("גבוהים"), "accepted invalid split");
+  await p.fill(".sheet [name=credit]", "700"); await submit(p);
+  const tot = (await paidNums(p)).pop(); assert(tot[1] === 12550, JSON.stringify(tot));
+});
+test("PAID-05", "הוצאות בפועל", "מחיקה", "לחיצה על שורת הספה ← מחיקה ← אישור", "השורה נמחקת; אשראי יורד ל־6,700", async p => {
+  await onboard(p); await tab(p, "paid");
+  await p.click("#paid-table tbody tr:nth-child(3)"); await p.click(".sheet [data-act=delete-paid]"); await p.click(".sheet .btn.danger");
+  const rows = await paidNums(p), tot = rows.pop(); assert(rows.length === 2 && tot[1] === 6700, JSON.stringify(tot));
+});
+test("PAID-06", "הוצאות בפועל", "הנתונים נטענים פעם אחת", "מחיקת כל השורות ← טעינה מחדש", "הרשימה נשארת ריקה (הנתונים ההתחלתיים לא חוזרים)", async p => {
+  await onboard(p); await setState(p, s => { s.payments = []; }); await tab(p, "paid");
+  assert(!(await p.$("#paid-table")) && (await p.textContent("#main")).includes("עוד לא נרשמו"), "seed came back");
+});
+test("PAID-07", "הוצאות בפועל", "באקסל", "דוחות ← הורדה; חישוב מחדש", "גיליון 'הוצאות בפועל' עם סה״כ אשראי 11,850, תווים 2,028 ו'אחר' 400", async p => {
+  await onboard(p); await tab(p, "reports");
+  const x = xlsx(await download(p, "[data-act=export-xlsx]"), true), r = x["הוצאות בפועל"].rows.find(r => r[0] === "סה״כ");
+  assert(r[2] === 14278 && r[3] === 11850 && r[4] === 2028 && r[5] === 400, JSON.stringify(r));
 });
 
 /* --- urgent focus --- */
@@ -368,12 +413,12 @@ test("FOC-07", "דחוף", "אקסל במצב דחוף", "קניית מקרר 3,
 });
 
 /* --- move-only focus --- */
-test("NAV-01", "מבנה", "רק מה שקשור למעבר", "פתיחה ← סקירת הלשוניות וההגדרות", "לשוניות: בית, קניות, משימות, דוחות. אין חשבונות, הוצאות, שכר דירה, העברות, הוצאות משתנות או פיקדונות", async p => {
+test("NAV-01", "מבנה", "רק מה שקשור למעבר", "פתיחה ← סקירת הלשוניות וההגדרות", "לשוניות: בית, קניות, הוצאות, משימות, דוחות. אין חשבונות, הוצאות, שכר דירה, העברות, הוצאות משתנות או פיקדונות", async p => {
   await onboard(p);
   const tabs = await p.$$eval(".tabs button span", x => x.map(e => e.textContent));
-  assert(JSON.stringify(tabs) === JSON.stringify(["בית", "קניות", "משימות", "דוחות"]), tabs.join(","));
+  assert(JSON.stringify(tabs) === JSON.stringify(["בית", "קניות", "הוצאות", "משימות", "דוחות"]), tabs.join(","));
   const all = [];
-  for (const v of ["home", "shop", "check", "reports"]) { await tab(p, v); all.push(await p.textContent("#main")); }
+  for (const v of ["home", "shop", "paid", "check", "reports"]) { await tab(p, v); all.push(await p.textContent("#main")); }
   await p.click("[data-act=go][data-v=settings]"); all.push(await p.textContent("#main"));
   const t = all.join(" ");
   for (const w of ["שכר דירה", "חשבון קבוע", "חשבונות קבועים", "העברות לחשבון המשותף", "הוצאות משתנות", "קטגוריות", "פיקדון"]) assert(!t.includes(w), "still mentions: " + w);
@@ -456,11 +501,11 @@ test("REP-03", "דוחות", "קניות לפי חודש", "נתונים לדו�
   const t = await p.$$eval("section.card", s => s.find(x => x.textContent.includes("קניות לפי חודש")).textContent);
   assert(t.includes("1,900") && t.includes("5,300"), t.replace(/\s+/g, " "));
 });
-test("XLS-01", "אקסל", "ייצוא מלא", "נתונים לדוגמה ← דוחות ← הורדה; חישוב מחדש ב־LibreOffice", "2 גיליונות מימין לשמאל (רשימת קניות, סיכום); הנוסחאות מחושבות לאותם ערכים שבאפליקציה", async p => {
+test("XLS-01", "אקסל", "ייצוא מלא", "נתונים לדוגמה ← דוחות ← הורדה; חישוב מחדש ב־LibreOffice", "3 גיליונות מימין לשמאל (רשימת קניות, סיכום, הוצאות בפועל); הנוסחאות מחושבות לאותם ערכים שבאפליקציה", async p => {
   await richData(p); await tab(p, "reports");
   const f = await download(p, "[data-act=export-xlsx]");
   const x = xlsx(f, false);
-  assert(JSON.stringify(Object.keys(x)) === JSON.stringify(["רשימת קניות", "סיכום"]), Object.keys(x).join(","));
+  assert(JSON.stringify(Object.keys(x)) === JSON.stringify(["רשימת קניות", "סיכום", "הוצאות בפועל"]), Object.keys(x).join(","));
   assert(Object.values(x).every(s => s.rtl), "not RTL");
   const rc = xlsx(f, true);
   const fridge = rc["רשימת קניות"].rows.find(r => r[1] === "מקרר"); assert(fridge[5] === -300, "diff " + fridge[5]);
@@ -471,14 +516,14 @@ test("XLS-01", "אקסל", "ייצוא מלא", "נתונים לדוגמה ← �
   assert(sum.find(r => r[0] === "מוצרי חשמל")[2] === 5300, "elec spent");
 });
 test("XLS-02", "אקסל", "סיכום בלבד", "ביטול 'רשימת הקניות' ← הורדה", "רק גיליון 'סיכום', עם ערכים נכונים בלי נוסחאות שבורות", async p => {
-  await richData(p); await tab(p, "reports"); await p.uncheck("#x-move");
+  await richData(p); await tab(p, "reports"); await p.uncheck("#x-move"); await p.uncheck("#x-paid");
   const x = xlsx(await download(p, "[data-act=export-xlsx]"), true);
   assert(JSON.stringify(Object.keys(x)) === '["סיכום"]', Object.keys(x).join(","));
   assert(x["סיכום"].rows.find(r => r[0] === "מוצרי חשמל")[2] === 5300, "values");
 });
 test("XLS-03", "אקסל", "ייצוא בלי תוכן", "ביטול כל הסימונים ← הורדה", "הודעה 'צריך לבחור', אין הורדה", async p => {
   await onboard(p); await tab(p, "reports");
-  for (const id of ["#x-move", "#x-sum"]) await p.uncheck(id);
+  for (const id of ["#x-move", "#x-sum", "#x-paid"]) await p.uncheck(id);
   let got = false; p.once("download", () => { got = true; });
   await p.click("[data-act=export-xlsx]");
   assert((await toast(p, "צריך לבחור")).includes("צריך לבחור") && !got, "no validation");
